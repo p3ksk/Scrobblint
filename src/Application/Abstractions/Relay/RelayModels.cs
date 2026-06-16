@@ -16,3 +16,13 @@ public sealed record RelayAuthResult(bool Success, string? Credential, string? U
     public static RelayAuthResult Ok(string credential, string? username) => new(true, credential, username, null);
     public static RelayAuthResult Fail(string error) => new(false, null, null, error);
 }
+
+/// <summary>One page of historical listens fetched from a source during an import.</summary>
+public sealed record RelayHistoryPage(IReadOnlyList<RelayTrack> Tracks, int Page, int TotalPages, int Total);
+
+/// <summary>Result of fetching a history page.</summary>
+public sealed record RelayHistoryResult(bool Success, RelayHistoryPage? Page, string? Error)
+{
+    public static RelayHistoryResult Ok(RelayHistoryPage page) => new(true, page, null);
+    public static RelayHistoryResult Fail(string error) => new(false, null, error);
+}

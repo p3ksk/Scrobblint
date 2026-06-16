@@ -112,6 +112,98 @@ public sealed class LastfmRelay : ILastfmRelay
         return RelayResult.Ok(accepted);
     }
 
+    public async Task<RelayHistoryResult> GetRecentTracksAsync(
+        string username, int page, int limit, long? toUnix, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured) return RelayHistoryResult.Fail("Last.fm is not configured.");
+
+        // user.getRecentTracks is an unsigned public read — no api_sig / session key required.
+        var parameters = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["method"] = "user.getRecentTracks",
+            ["user"] = username,
+            ["api_key"] = _options.ApiKey!,
+            ["limit"] = limit.ToString(),
+            ["page"] = page.ToString()
+        };
+        if (toUnix is > 0) parameters["to"] = toUnix.Value.ToString();
+
+        try
+        {
+            using var doc = await GetAsync(parameters, cancellationToken);
+            if (TryGetError(doc.RootElement, out var error))
+                return RelayHistoryResult.Fail($"Last.fm: {error}");
+            if (!doc.RootElement.TryGetProperty("recenttracks", out var rt))
+                return RelayHistoryResult.Fail("Unexpected Last.fm response.");
+
+            var totalPages = page;
+            var total = 0;
+            var currentPage = page;
+            if (rt.TryGetProperty("@attr", out var attr))
+            {
+                totalPages = ParseInt(attr, "totalPages", page);
+                total = ParseInt(attr, "total", 0);
+                currentPage = ParseInt(attr, "page", page);
+            }
+
+            var tracks = new List<RelayTrack>();
+            if (rt.TryGetProperty("track", out var trackEl))
+            {
+                if (trackEl.ValueKind == JsonValueKind.Array)
+                    foreach (var t in trackEl.EnumerateArray()) AddTrack(t, tracks);
+                else if (trackEl.ValueKind == JsonValueKind.Object)
+                    AddTrack(trackEl, tracks);
+            }
+
+            return RelayHistoryResult.Ok(new RelayHistoryPage(tracks, currentPage, totalPages, total));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Last.fm getRecentTracks failed for {User} page {Page}", username, page);
+            return RelayHistoryResult.Fail("Could not reach Last.fm to fetch history.");
+        }
+    }
+
+    private static void AddTrack(JsonElement track, List<RelayTrack> into)
+    {
+        // Skip the "now playing" entry (it has no listen time).
+        if (track.TryGetProperty("@attr", out var a) &&
+            a.TryGetProperty("nowplaying", out var np) && np.GetString() == "true")
+            return;
+        if (!track.TryGetProperty("date", out var date) || !date.TryGetProperty("uts", out var uts))
+            return;
+        if (!long.TryParse(uts.GetString(), out var unix) || unix <= 0)
+            return;
+
+        var artist = GetText(track, "artist");
+        var name = track.TryGetProperty("name", out var n) ? n.GetString() ?? string.Empty : string.Empty;
+        var album = GetText(track, "album");
+        if (string.IsNullOrWhiteSpace(artist) || string.IsNullOrWhiteSpace(name))
+            return;
+
+        into.Add(new RelayTrack(artist, name, string.IsNullOrWhiteSpace(album) ? null : album, unix));
+    }
+
+    private static string GetText(JsonElement parent, string property)
+    {
+        if (parent.TryGetProperty(property, out var el))
+        {
+            if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty("#text", out var txt)) return txt.GetString() ?? string.Empty;
+            if (el.ValueKind == JsonValueKind.String) return el.GetString() ?? string.Empty;
+        }
+        return string.Empty;
+    }
+
+    private static int ParseInt(JsonElement parent, string property, int fallback)
+    {
+        if (parent.TryGetProperty(property, out var el))
+        {
+            if (el.ValueKind == JsonValueKind.String && int.TryParse(el.GetString(), out var s)) return s;
+            if (el.ValueKind == JsonValueKind.Number && el.TryGetInt32(out var n)) return n;
+        }
+        return fallback;
+    }
+
     // ---- helpers ----
 
     private void Sign(SortedDictionary<string, string> parameters)

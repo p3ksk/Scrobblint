@@ -29,7 +29,7 @@ public static class UiFormEndpoints
         {
             if (!await Valid(antiforgery, context)) return Results.BadRequest();
             await auth.RegenerateTokenAsync(context.User.GetUserId()!.Value, context.RequestAborted);
-            return Results.LocalRedirect("/token");
+            return Results.LocalRedirect("/settings/token");
         }).RequireAuthorization();
 
         app.MapPost("/account/settings", async (
@@ -77,7 +77,7 @@ public static class UiFormEndpoints
             var result = svc.BeginLastfmAuth(callbackUrl);
             return result.Succeeded
                 ? Results.Redirect(result.Value!)
-                : Results.LocalRedirect($"/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+                : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
         }).RequireAuthorization();
 
         app.MapGet("/account/connections/lastfm/callback", async (
@@ -87,7 +87,7 @@ public static class UiFormEndpoints
             context.Response.Cookies.Delete(LastfmStateCookie, new CookieOptions { Path = "/account/connections" });
 
             if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(state) || state != expected)
-                return Results.LocalRedirect("/connections?error=Last.fm+authorization+was+cancelled+or+invalid.");
+                return Results.LocalRedirect("/settings/connections?error=Last.fm+authorization+was+cancelled+or+invalid.");
 
             var result = await svc.CompleteLastfmAuthAsync(context.User.GetUserId()!.Value, token, context.RequestAborted);
             return RedirectConnections(result);
@@ -100,7 +100,24 @@ public static class UiFormEndpoints
             if (!Enum.TryParse<ScrobbleProvider>(provider, true, out var p)) return Results.NotFound();
             var enabled = context.Request.Form["enabled"] == "true";
             await svc.SetEnabledAsync(context.User.GetUserId()!.Value, p, enabled, context.RequestAborted);
-            return Results.LocalRedirect("/connections");
+            return Results.LocalRedirect("/settings/connections");
+        }).RequireAuthorization();
+
+        // Last.fm full-history import (background; progress shown on the Connections page).
+        app.MapPost("/account/connections/lastfm/import", async (
+            HttpContext context, IAntiforgery antiforgery, IScrobbleImportService imports) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            await imports.StartLastfmImportAsync(context.User.GetUserId()!.Value, context.RequestAborted);
+            return Results.LocalRedirect("/settings/connections");
+        }).RequireAuthorization();
+
+        app.MapPost("/account/connections/lastfm/import/cancel", async (
+            HttpContext context, IAntiforgery antiforgery, IScrobbleImportService imports) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            await imports.CancelAsync(context.User.GetUserId()!.Value, context.RequestAborted);
+            return Results.LocalRedirect("/settings/connections");
         }).RequireAuthorization();
 
         app.MapPost("/account/connections/{provider}/disconnect", async (
@@ -109,7 +126,7 @@ public static class UiFormEndpoints
             if (!await Valid(antiforgery, context)) return Results.BadRequest();
             if (!Enum.TryParse<ScrobbleProvider>(provider, true, out var p)) return Results.NotFound();
             await svc.DisconnectAsync(context.User.GetUserId()!.Value, p, context.RequestAborted);
-            return Results.LocalRedirect("/connections");
+            return Results.LocalRedirect("/settings/connections");
         }).RequireAuthorization();
 
         // ---- Admin ----
@@ -147,6 +164,6 @@ public static class UiFormEndpoints
 
     private static IResult RedirectConnections(Scrobblint.Application.Common.Result result) =>
         result.Succeeded
-            ? Results.LocalRedirect("/connections?saved=1")
-            : Results.LocalRedirect($"/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+            ? Results.LocalRedirect("/settings/connections?saved=1")
+            : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
 }

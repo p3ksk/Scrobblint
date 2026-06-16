@@ -54,7 +54,7 @@ public static class AccountEndpoints
             if (credentials.Succeeded)
                 await signIn.SignInAsync(credentials.Value!);
 
-            return Results.LocalRedirect("/token");
+            return Results.LocalRedirect("/settings/token");
         });
 
         group.MapPost("/logout", async (HttpContext context, IAntiforgery antiforgery, CookieSignInService signIn) =>

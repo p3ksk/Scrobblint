@@ -337,6 +337,19 @@ form input:focus, form select:focus {
 .profile-header { margin-bottom: 1.5rem; }
 .profile-header h1 { display: inline-block; }
 
+/* -------- settings sub-nav (tabs) -------- */
+.settings-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 1.5rem; }
+.settings-tab {
+    text-decoration: none; text-transform: uppercase;
+    font-family: var(--font-display); font-weight: 700; font-size: 0.8rem; letter-spacing: 0.03em;
+    padding: 0.45rem 0.85rem;
+    border: var(--bd); background: var(--panel); color: var(--ink);
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.08s, box-shadow 0.08s;
+}
+.settings-tab:hover { text-decoration: none; transform: translate(-2px, -2px); box-shadow: var(--shadow); }
+.settings-tab.active { background: var(--lime); color: var(--on-accent-dark); }
+
 /* -------- framework error UI -------- */
 #blazor-error-ui {
     display: none;

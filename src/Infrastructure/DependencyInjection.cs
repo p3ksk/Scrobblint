@@ -6,6 +6,7 @@ using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Abstractions.Security;
 using Scrobblint.Infrastructure.Configuration;
+using Scrobblint.Infrastructure.Import;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Providers;
 using Scrobblint.Infrastructure.Persistence.Repositories;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<LastfmOptions>(configuration.GetSection(LastfmOptions.SectionName));
+        services.Configure<ImportOptions>(configuration.GetSection(ImportOptions.SectionName));
 
         // Resolve the provider and connection lazily through the options system so configuration added
         // late (e.g. by WebApplicationFactory in tests, or env vars) is honoured.
@@ -45,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IScrobbleRepository, ScrobbleRepository>();
         services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
         services.AddScoped<IExternalConnectionRepository, ExternalConnectionRepository>();
+        services.AddScoped<IScrobbleImportRepository, ScrobbleImportRepository>();
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
@@ -66,6 +69,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IScrobbleRelayQueue, ScrobbleRelayQueue>();
         services.AddHostedService<ScrobbleRelayDispatcher>();
+
+        // --- History import (Last.fm) ---
+        services.AddSingleton<IScrobbleImportQueue, ScrobbleImportQueue>();
+        services.AddHostedService<ScrobbleImportWorker>();
 
         return services;
     }

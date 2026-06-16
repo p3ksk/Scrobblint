@@ -94,6 +94,64 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.ToTable("Scrobbles", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.ScrobbleImport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DuplicateCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Error")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ImportedCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("NextPage")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceAccount")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("ToTimestamp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TotalAvailable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("TotalPages")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Status");
+
+                    b.ToTable("ScrobbleImports", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -181,6 +239,17 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                 {
                     b.HasOne("Scrobblint.Domain.Entities.User", "User")
                         .WithMany("Scrobbles")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Scrobblint.Domain.Entities.ScrobbleImport", b =>
+                {
+                    b.HasOne("Scrobblint.Domain.Entities.User", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

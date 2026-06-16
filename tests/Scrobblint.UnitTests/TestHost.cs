@@ -4,6 +4,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
+using Scrobblint.Domain.Entities;
+using Scrobblint.Domain.Enums;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Repositories;
 using Scrobblint.Infrastructure.Security;
@@ -25,6 +27,8 @@ public sealed class TestHost : IDisposable
     public ScrobbleService Scrobbles { get; }
     public StatisticsService Statistics { get; }
     public UserService Users { get; }
+    public ScrobbleImportService Imports { get; }
+    public FakeLastfmRelay Lastfm { get; } = new();
 
     public TestHost()
     {
@@ -44,10 +48,29 @@ public sealed class TestHost : IDisposable
         var hasher = new Pbkdf2PasswordHasher();
         var tokens = new TokenGenerator();
 
+        var importRepo = new ScrobbleImportRepository(Db);
+        var connectionRepo = new ExternalConnectionRepository(Db);
+
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
         Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, unitOfWork, RelayQueue, Clock, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
+        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, NullLogger<ScrobbleImportService>.Instance);
+    }
+
+    /// <summary>Inserts a Last.fm connection so an import can be started.</summary>
+    public async Task ConnectLastfmAsync(Guid userId, string account)
+    {
+        Db.ExternalConnections.Add(new ExternalConnection
+        {
+            UserId = userId,
+            Provider = ScrobbleProvider.Lastfm,
+            IsEnabled = true,
+            Token = "sk",
+            ExternalUsername = account,
+            CreatedAt = Clock.UtcNow
+        });
+        await Db.SaveChangesAsync();
     }
 
     public void Dispose()
@@ -80,4 +103,36 @@ public sealed class RecordingRelayQueue : IScrobbleRelayQueue
             yield return job;
         await Task.CompletedTask;
     }
+}
+
+public sealed class NoopImportQueue : IScrobbleImportQueue
+{
+    public bool Enqueue(Guid importId) => true;
+
+    public async IAsyncEnumerable<Guid> DequeueAllAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await Task.CompletedTask;
+        yield break;
+    }
+}
+
+/// <summary>Fake Last.fm relay returning canned history pages keyed by page number.</summary>
+public sealed class FakeLastfmRelay : ILastfmRelay
+{
+    public Dictionary<int, RelayHistoryPage> Pages { get; } = new();
+
+    public ScrobbleProvider Provider => ScrobbleProvider.Lastfm;
+    public bool IsConfigured => true;
+
+    public Task<RelayHistoryResult> GetRecentTracksAsync(string username, int page, int limit, long? toUnix, CancellationToken cancellationToken = default) =>
+        Task.FromResult(Pages.TryGetValue(page, out var p)
+            ? RelayHistoryResult.Ok(p)
+            : RelayHistoryResult.Fail($"No page {page}"));
+
+    public Task<RelayResult> SendAsync(ExternalConnection connection, IReadOnlyList<RelayTrack> tracks, CancellationToken cancellationToken = default) =>
+        Task.FromResult(RelayResult.Ok(tracks.Count));
+    public string BuildAuthorizeUrl(string callbackUrl) => callbackUrl;
+    public Task<RelayAuthResult> CompleteAuthorizationAsync(string token, CancellationToken cancellationToken = default) =>
+        Task.FromResult(RelayAuthResult.Ok("sk", "tester"));
 }

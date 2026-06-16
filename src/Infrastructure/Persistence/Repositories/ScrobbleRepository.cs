@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Common;
 using Scrobblint.Domain.Entities;
 using Scrobblint.Shared.Stats;
 
@@ -16,6 +17,21 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task AddRangeAsync(IEnumerable<Scrobble> scrobbles, CancellationToken cancellationToken = default) =>
         await _context.Scrobbles.AddRangeAsync(scrobbles, cancellationToken);
+
+    public async Task<HashSet<string>> GetExistingKeysAsync(
+        Guid userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
+    {
+        // Narrow window (one page worth of consecutive listens): uses the (UserId, Timestamp) index.
+        var rows = await _context.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Timestamp >= fromUtc && s.Timestamp <= toUtc)
+            .Select(s => new { s.Artist, s.Track, s.Timestamp })
+            .ToListAsync(cancellationToken);
+
+        var keys = new HashSet<string>(rows.Count);
+        foreach (var r in rows)
+            keys.Add(ScrobbleKey.For(r.Artist, r.Track, r.Timestamp));
+        return keys;
+    }
 
     public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
         Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)

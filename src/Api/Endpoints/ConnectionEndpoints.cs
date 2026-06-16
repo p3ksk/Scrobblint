@@ -52,6 +52,34 @@ public static class ConnectionEndpoints
         .WithName("CompleteLastfmAuth")
         .WithSummary("Finish Last.fm linking with the token returned to your callback.");
 
+        // ----- Last.fm history import -----
+        group.MapPost("/lastfm/import", async (
+            ClaimsPrincipal user, IScrobbleImportService imports, CancellationToken ct) =>
+        {
+            var result = await imports.StartLastfmImportAsync(user.GetUserId()!.Value, ct);
+            return result.ToHttpResult(StatusCodes.Status202Accepted);
+        })
+        .WithName("StartLastfmImport")
+        .WithSummary("Start importing the caller's full Last.fm scrobble history (runs in the background).");
+
+        group.MapGet("/lastfm/import", async (
+            ClaimsPrincipal user, IScrobbleImportService imports, CancellationToken ct) =>
+        {
+            var status = await imports.GetStatusAsync(user.GetUserId()!.Value, ct);
+            return status is null ? Results.NoContent() : Results.Ok(status);
+        })
+        .WithName("GetLastfmImportStatus")
+        .WithSummary("Progress of the caller's most recent history import.");
+
+        group.MapDelete("/lastfm/import", async (
+            ClaimsPrincipal user, IScrobbleImportService imports, CancellationToken ct) =>
+        {
+            var result = await imports.CancelAsync(user.GetUserId()!.Value, ct);
+            return result.ToHttpResult(StatusCodes.Status204NoContent);
+        })
+        .WithName("CancelLastfmImport")
+        .WithSummary("Cancel the caller's running history import.");
+
         group.MapPost("/{provider}/enabled", async (
             string provider, bool value, ClaimsPrincipal user, IExternalConnectionService svc, CancellationToken ct) =>
         {

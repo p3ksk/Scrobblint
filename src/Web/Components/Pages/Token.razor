@@ -1,10 +1,12 @@
-@page "/token"
+@page "/settings/token"
 @attribute [Authorize]
 @inject IAuthService Auth
 
 <PageTitle>API token — Scrobblint</PageTitle>
 
-<h1>Your API token</h1>
+<h1>Settings</h1>
+
+<SettingsNav />
 
 <div class="card narrow">
     <p>Use this token to submit scrobbles. Send it in the <code>Authorization</code> header:</p>

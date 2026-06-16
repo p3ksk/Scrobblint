@@ -193,6 +193,7 @@ Authorization: Token YOUR_TOKEN
 | `POST /api/connections/lastfm/complete` | Finish Last.fm linking (`{ "token" }` returned to your callback) |
 | `POST /api/connections/{provider}/enabled?value=true|false` | Pause / resume relaying |
 | `DELETE /api/connections/{provider}` | Unlink a service |
+| `POST /api/connections/lastfm/import` · `GET` · `DELETE` | Start / poll progress / cancel a Last.fm history import |
 
 ### Admin (require admin token)
 
@@ -230,9 +231,9 @@ curl http://localhost:5269/api/user/alice/recent
 | `/` Home | `/dashboard` | `/admin/users` |
 | `/register` | `/recent` | `/admin/users/{id}` (disable/enable, regenerate token) |
 | `/login` | `/stats` | |
-| `/user/{username}` profile | `/token` (view / regenerate) | |
-| | `/connections` (Last.fm / ListenBrainz) | |
-| | `/settings` (visibility, theme) | |
+| `/user/{username}` profile | `/settings` (preferences) | |
+| | `/settings/token` (view / regenerate) | |
+| | `/settings/connections` (Last.fm / ListenBrainz + import) | |
 
 The UI is rendered with **static server-side rendering** (minimal JavaScript). Forms post to small endpoints that validate the **antiforgery** token and write the auth cookie.
 
@@ -267,6 +268,24 @@ How it works internally:
 
 Adding another target (e.g. a different scrobble service) means implementing `IScrobbleRelay` and
 registering it — the dispatcher picks it up automatically.
+
+### Importing your Last.fm history
+
+Once Last.fm is connected, the **Connections** page offers **Import history** — it pulls your entire
+Last.fm scrobble history into Scrobblint (via `user.getRecentTracks`). This is built for large
+libraries (hundreds of thousands of scrobbles):
+
+- Runs in the background as a **persisted, resumable job** — it survives restarts and continues from
+  the page it reached. Progress (imported / duplicates / page / %) is shown live on the page, which
+  auto-refreshes with no JavaScript.
+- **Idempotent**: re-running skips listens that already exist (deduplicated by artist + track +
+  timestamp), so it's always safe to run again.
+- **Rate-limited and memory-bounded**: one 200-item page at a time, each in its own database scope,
+  with a configurable delay (`Import:PageDelayMilliseconds`, default 300 ms) to stay well under
+  Last.fm's limits. A 300k-scrobble library is ~1,500 pages — expect roughly 10–20 minutes.
+
+REST equivalents: `POST /api/connections/lastfm/import` (start), `GET …/import` (progress),
+`DELETE …/import` (cancel).
 
 ---
 

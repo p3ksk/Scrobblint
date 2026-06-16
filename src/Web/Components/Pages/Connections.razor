@@ -1,11 +1,15 @@
-@page "/connections"
+@page "/settings/connections"
 @attribute [Authorize]
 @using Scrobblint.Shared.Connections
 @inject IExternalConnectionService ConnectionService
+@inject IScrobbleImportService ImportService
 
 <PageTitle>Connections — Scrobblint</PageTitle>
 
-<h1>External connections</h1>
+<h1>Settings</h1>
+
+<SettingsNav />
+
 <p class="muted">Relay every listen you submit to Scrobblint onward to these services.</p>
 
 @if (!string.IsNullOrEmpty(Error))
@@ -96,6 +100,63 @@ else
             </form>
         }
     </div>
+
+    @* ---- Last.fm history import ---- *@
+    @if (Find(ScrobbleProvider.Lastfm) is not null)
+    {
+        @if (_import is { IsActive: true })
+        {
+            <HeadContent>
+                <meta http-equiv="refresh" content="5" />
+            </HeadContent>
+        }
+
+        <div class="card narrow">
+            <h2>Import Last.fm history</h2>
+            @if (_import is { IsActive: true })
+            {
+                <p><strong>@_import.ImportedCount.ToString("N0")</strong> scrobbles imported so far@(_import.DuplicateCount > 0 ? $" ({_import.DuplicateCount:N0} already present)" : "").</p>
+                @if (_import.TotalPages > 0)
+                {
+                    <div class="bar-track"><span class="bar-fill" style="width:@(_import.PercentComplete ?? 0)%"></span></div>
+                    <p class="muted">
+                        ~@_import.TotalAvailable.ToString("N0") total · page @(Math.Max(0, _import.Page - 1)) of @_import.TotalPages.ToString("N0") · @(_import.PercentComplete ?? 0)%
+                    </p>
+                }
+                else
+                {
+                    <p class="muted">Contacting Last.fm…</p>
+                }
+                <form method="post" action="/account/connections/lastfm/import/cancel">
+                    <AntiforgeryToken />
+                    <button class="btn btn-danger" type="submit">Cancel import</button>
+                </form>
+                <p class="muted">Runs in the background — you can leave this page. It refreshes every few seconds.</p>
+            }
+            else
+            {
+                @if (_import is not null)
+                {
+                    <p>
+                        Last import: <strong>@_import.Status.ToLowerInvariant()</strong> —
+                        @_import.ImportedCount.ToString("N0") imported, @_import.DuplicateCount.ToString("N0") duplicates.
+                    </p>
+                    @if (!string.IsNullOrEmpty(_import.Error))
+                    {
+                        <div class="alert alert-error">@_import.Error</div>
+                    }
+                }
+                <p class="muted">
+                    Pull your entire Last.fm scrobble history into Scrobblint. Large libraries (100k+) take a while —
+                    it runs in the background and is safe to re-run (duplicates are skipped).
+                </p>
+                <form method="post" action="/account/connections/lastfm/import">
+                    <AntiforgeryToken />
+                    <button class="btn btn-primary" type="submit">@(_import is null ? "Import history" : "Re-import history")</button>
+                </form>
+            }
+        </div>
+    }
 }
 
 @code {
@@ -104,12 +165,14 @@ else
     [SupplyParameterFromQuery] private int? Saved { get; set; }
 
     private ConnectionsResponse? _data;
+    private ImportStatusDto? _import;
 
     protected override async Task OnInitializedAsync()
     {
-        var user = (await AuthState!).User;
-        var result = await ConnectionService.GetConnectionsAsync(user.GetUserId()!.Value);
+        var userId = (await AuthState!).User.GetUserId()!.Value;
+        var result = await ConnectionService.GetConnectionsAsync(userId);
         if (result.Succeeded) _data = result.Value;
+        _import = await ImportService.GetStatusAsync(userId);
     }
 
     private ExternalConnectionDto? Find(ScrobbleProvider provider) =>

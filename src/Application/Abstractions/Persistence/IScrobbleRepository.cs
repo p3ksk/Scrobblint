@@ -13,6 +13,13 @@ public interface IScrobbleRepository
 
     Task AddRangeAsync(IEnumerable<Scrobble> scrobbles, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns dedup keys (artist/track/timestamp) for the user's scrobbles whose timestamp falls in
+    /// [<paramref name="fromUtc"/>, <paramref name="toUtc"/>], used to skip already-imported listens.
+    /// </summary>
+    Task<HashSet<string>> GetExistingKeysAsync(
+        Guid userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
+
     /// <summary>Most recent listens for a user, newest first, paged in the database.</summary>
     Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
         Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);

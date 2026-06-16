@@ -16,6 +16,7 @@ public static class DependencyInjection
         services.AddScoped<IStatisticsService, StatisticsService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IExternalConnectionService, ExternalConnectionService>();
+        services.AddScoped<IScrobbleImportService, ScrobbleImportService>();
         return services;
     }
 }

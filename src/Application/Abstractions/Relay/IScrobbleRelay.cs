@@ -40,4 +40,11 @@ public interface ILastfmRelay : IScrobbleRelay
 
     /// <summary>Exchanges an authorized request token for a session key via <c>auth.getSession</c>.</summary>
     Task<RelayAuthResult> CompleteAuthorizationAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fetches one page of a user's listening history (<c>user.getRecentTracks</c>), newest first,
+    /// bounded by <paramref name="toUnix"/> so paging is stable during a long import.
+    /// </summary>
+    Task<RelayHistoryResult> GetRecentTracksAsync(
+        string username, int page, int limit, long? toUnix, CancellationToken cancellationToken = default);
 }
