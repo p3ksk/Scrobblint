@@ -36,23 +36,23 @@ public static class DependencyInjection
             DataStorageProviderFactory.Create(sp.GetRequiredService<IOptions<DatabaseOptions>>().Value));
         services.AddSingleton<IDataStorageProvider>(sp => sp.GetRequiredService<IEfDataStorageProvider>());
 
-        // Register the context through a pooled factory rather than AddDbContext. A single
-        // DI-scoped context is fragile in a Blazor host: it can be shared across overlapping
-        // renders, and a long-lived scope leaves a wide window for one query to be torn down
-        // (e.g. by request cancellation) while another starts — surfacing as "a second operation
-        // was started on this context instance". The factory owns context creation; the scoped
-        // bridge below leases exactly one context per request/operation so the existing repository
-        // + unit-of-work pattern (all repositories and SaveChanges must share one context for a
-        // transactional write) keeps working unchanged. Components that need their own short-lived
-        // context can inject IDbContextFactory<ScrobblintDbContext> directly.
-        services.AddPooledDbContextFactory<ScrobblintDbContext>((sp, options) =>
+        // Register a (non-pooled) context factory plus a scoped bridge. Pooling must NOT be used
+        // here: when a Blazor request is aborted (enhanced navigation cancels the page you just
+        // left), its query keeps running on CancellationToken.None while the DI scope is torn down
+        // and the context returned to the pool. The very next request then rents that same instance
+        // and runs its own query on it concurrently — "a second operation was started on this
+        // context instance". A non-pooled factory hands every scope a brand-new context that is
+        // never reused, so an abandoned request can only ever touch its own (disposed) context and
+        // can't corrupt the next one. The scoped bridge keeps the repository + unit-of-work pattern
+        // (all repositories and SaveChanges share one context per request) working unchanged.
+        services.AddDbContextFactory<ScrobblintDbContext>((sp, options) =>
         {
             var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
             var provider = sp.GetRequiredService<IEfDataStorageProvider>();
             provider.Configure(options, DataStorageProviderFactory.ResolveConnectionString(dbOptions));
         });
 
-        // One pooled context per scope, returned to the pool when the scope is disposed.
+        // One fresh context per scope, disposed (not pooled) when the scope ends.
         services.AddScoped<ScrobblintDbContext>(sp =>
             sp.GetRequiredService<IDbContextFactory<ScrobblintDbContext>>().CreateDbContext());
 
