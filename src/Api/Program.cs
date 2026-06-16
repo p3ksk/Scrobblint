@@ -1,5 +1,6 @@
 using Scrobblint.Api;
 using Scrobblint.Api.Authentication;
+using Scrobblint.Api.ListenBrainz;
 using Scrobblint.Application;
 using Scrobblint.Infrastructure;
 using Scrobblint.Infrastructure.Persistence;
@@ -37,6 +38,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapScrobblintApi();
+app.MapListenBrainzApi();
 app.MapGet("/", () => Results.Ok(new { service = "Scrobblint", status = "ok" })).ExcludeFromDescription();
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).WithTags("Health");
 

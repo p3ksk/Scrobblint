@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Components.Authorization;
 using Scrobblint.Api;
 using Scrobblint.Api.Authentication;
+using Scrobblint.Api.ListenBrainz;
 using Scrobblint.Application;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Infrastructure;
@@ -113,5 +114,8 @@ app.MapUiFormEndpoints();
 // Expose the REST API from the same host (token-authenticated) so scrobble clients
 // can target a single self-hosted deployment.
 app.MapScrobblintApi();
+
+// ListenBrainz-compatible surface at /1 so a ListenBrainz client works by changing only its base URL.
+app.MapListenBrainzApi();
 
 app.Run();
