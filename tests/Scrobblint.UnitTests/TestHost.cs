@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
@@ -52,7 +54,7 @@ public sealed class TestHost : IDisposable
         var connectionRepo = new ExternalConnectionRepository(Db);
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
-        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, unitOfWork, RelayQueue, Clock, NullLogger<ScrobbleService>.Instance);
+        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, RelayQueue, new IScrobbleRelay[] { Lastfm }, Clock, new MemoryCache(Options.Create(new MemoryCacheOptions())), NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
         Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, NullLogger<ScrobbleImportService>.Instance);
@@ -132,6 +134,8 @@ public sealed class FakeLastfmRelay : ILastfmRelay
 
     public Task<RelayResult> SendAsync(ExternalConnection connection, IReadOnlyList<RelayTrack> tracks, CancellationToken cancellationToken = default) =>
         Task.FromResult(RelayResult.Ok(tracks.Count));
+    public Task<RelayResult> SendNowPlayingAsync(ExternalConnection connection, string artist, string track, string? album, CancellationToken cancellationToken = default) =>
+        Task.FromResult(RelayResult.Ok(1));
     public string BuildAuthorizeUrl(string callbackUrl) => callbackUrl;
     public Task<RelayAuthResult> CompleteAuthorizationAsync(string token, CancellationToken cancellationToken = default) =>
         Task.FromResult(RelayAuthResult.Ok("sk", "tester"));

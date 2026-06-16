@@ -58,6 +58,14 @@ public static class DependencyInjection
         {
             client.Timeout = TimeSpan.FromSeconds(20);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Scrobblint/1.0 (+https://github.com/scrobblint)");
+        })
+        .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+        {
+            EnableMultipleHttp2Connections = true,
+            SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+            {
+                EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+            }
         });
 
         services.AddSingleton<ListenBrainzRelay>();

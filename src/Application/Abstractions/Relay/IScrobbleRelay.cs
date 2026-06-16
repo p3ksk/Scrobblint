@@ -17,6 +17,9 @@ public interface IScrobbleRelay
 
     /// <summary>Relays a batch of listens using the credentials stored on <paramref name="connection"/>.</summary>
     Task<RelayResult> SendAsync(ExternalConnection connection, IReadOnlyList<RelayTrack> tracks, CancellationToken cancellationToken = default);
+
+    /// <summary>Relays a now-playing update. Artist/Track are required; Album is optional.</summary>
+    Task<RelayResult> SendNowPlayingAsync(ExternalConnection connection, string artist, string track, string? album, CancellationToken cancellationToken = default);
 }
 
 /// <summary>ListenBrainz relay — validates and stores a user token.</summary>

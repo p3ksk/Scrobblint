@@ -19,6 +19,18 @@ else
         <div class="stat-card"><span class="stat-num">@_stats.UniqueTracks</span><span class="stat-label">Tracks</span></div>
     </div>
 
+    @if (_nowPlaying is not null)
+    {
+        <div class="card">
+            <h2>Now playing</h2>
+            <p class="track-line"><span class="track">@_nowPlaying.Track</span> — <span class="artist">@_nowPlaying.Artist</span></p>
+            @if (_nowPlaying.Album is not null)
+            {
+                <p class="muted">Album: @_nowPlaying.Album</p>
+            }
+        </div>
+    }
+
     <div class="grid-2">
         <div class="card">
             <h2>Recent listens</h2>
@@ -67,6 +79,7 @@ else
 
     private StatsResponse? _stats;
     private PagedResponse<ScrobbleResponse>? _recent;
+    private NowPlayingResponse? _nowPlaying;
 
     protected override async Task OnInitializedAsync()
     {
@@ -79,5 +92,7 @@ else
 
         var recent = await Scrobbles.GetRecentAsync(username, 1, 5, viewer);
         if (recent.Succeeded) _recent = recent.Value;
+
+        _nowPlaying = Scrobbles.GetNowPlaying(user.GetUserId()!.Value);
     }
 }

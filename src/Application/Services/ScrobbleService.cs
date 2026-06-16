@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
@@ -15,26 +16,35 @@ public sealed class ScrobbleService : IScrobbleService
     private readonly IScrobbleRepository _scrobbles;
     private readonly IUserRepository _users;
     private readonly IUserSettingsRepository _settings;
+    private readonly IExternalConnectionRepository _connections;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IScrobbleRelayQueue _relayQueue;
+    private readonly IEnumerable<IScrobbleRelay> _relays;
     private readonly IClock _clock;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<ScrobbleService> _logger;
 
     public ScrobbleService(
         IScrobbleRepository scrobbles,
         IUserRepository users,
         IUserSettingsRepository settings,
+        IExternalConnectionRepository connections,
         IUnitOfWork unitOfWork,
         IScrobbleRelayQueue relayQueue,
+        IEnumerable<IScrobbleRelay> relays,
         IClock clock,
+        IMemoryCache cache,
         ILogger<ScrobbleService> logger)
     {
         _scrobbles = scrobbles;
         _users = users;
         _settings = settings;
+        _connections = connections;
         _unitOfWork = unitOfWork;
         _relayQueue = relayQueue;
+        _relays = relays;
         _clock = clock;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -98,6 +108,58 @@ public sealed class ScrobbleService : IScrobbleService
 
         _logger.LogInformation("Accepted {Count} scrobble(s) for user {UserId}", entities.Count, userId);
         return Result<ScrobbleSubmitResponse>.Ok(new ScrobbleSubmitResponse(entities.Count));
+    }
+
+    public async Task<Result> UpdateNowPlayingAsync(Guid userId, NowPlayingRequest request, CancellationToken cancellationToken = default)
+    {
+        var artist = request.Artist?.Trim() ?? string.Empty;
+        var track = request.Track?.Trim() ?? string.Empty;
+        var album = string.IsNullOrWhiteSpace(request.Album) ? null : request.Album!.Trim();
+
+        var validation = new ValidationBuilder();
+        if (string.IsNullOrEmpty(artist)) validation.Add("artist", "Artist is required.");
+        if (string.IsNullOrEmpty(track)) validation.Add("track", "Track is required.");
+        if (artist.Length > AppConstants.FieldMaxLength) validation.Add("artist", "Artist is too long.");
+        if (track.Length > AppConstants.FieldMaxLength) validation.Add("track", "Track is too long.");
+        if (album is { Length: > AppConstants.FieldMaxLength }) validation.Add("album", "Album is too long.");
+        if (validation.HasErrors)
+            return Result.Invalid(validation.Build());
+
+        var enabled = await _connections.GetEnabledByUserAsync(userId, cancellationToken);
+        var relayLookup = _relays.ToDictionary(r => r.Provider);
+
+        foreach (var connection in enabled)
+        {
+            if (!relayLookup.TryGetValue(connection.Provider, out var relay) || !relay.IsConfigured)
+                continue;
+
+            try
+            {
+                var relayResult = await relay.SendNowPlayingAsync(connection, artist, track, album, cancellationToken);
+                if (relayResult.Success)
+                    _logger.LogInformation("Now-playing relayed to {Provider} for user {UserId}", connection.Provider, userId);
+                else
+                    _logger.LogWarning("Now-playing relay to {Provider} failed for user {UserId}: {Error}", connection.Provider, userId, relayResult.Error);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Now-playing relay to {Provider} errored for user {UserId}", connection.Provider, userId);
+            }
+        }
+
+        _cache.Set($"np:{userId}", new NowPlayingResponse(artist, track, album, _clock.UtcNow),
+            new MemoryCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2) });
+
+        return Result.Ok();
+    }
+
+    public NowPlayingResponse? GetNowPlaying(Guid userId) =>
+        _cache.Get<NowPlayingResponse>($"np:{userId}");
+
+    public async Task<NowPlayingResponse?> GetNowPlayingByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    {
+        var user = await _users.GetByUsernameAsync(username, cancellationToken);
+        return user is null ? null : _cache.Get<NowPlayingResponse>($"np:{user.Id}");
     }
 
     public async Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentAsync(

@@ -23,7 +23,18 @@ else if (_profile is not null)
         <p class="muted">Member since @Format.DateUtc(_profile.CreatedAt) · @_profile.TotalScrobbles scrobbles</p>
     </div>
 
-    @if (_profile.LatestScrobble is { } latest)
+    @if (_nowPlaying is { } np)
+    {
+        <div class="card">
+            <h2>Now playing</h2>
+            <p class="track-line"><span class="track">@np.Track</span> — <span class="artist">@np.Artist</span></p>
+            @if (np.Album is not null)
+            {
+                <p class="muted">Album: @np.Album</p>
+            }
+        </div>
+    }
+    else if (_profile.LatestScrobble is { } latest)
     {
         <div class="card">
             <h2>Now / last played</h2>
@@ -56,6 +67,7 @@ else if (_profile is not null)
 
     private UserProfileResponse? _profile;
     private PagedResponse<ScrobbleResponse>? _recent;
+    private NowPlayingResponse? _nowPlaying;
     private bool _loaded;
     private bool _forbidden;
 
@@ -75,6 +87,7 @@ else if (_profile is not null)
             _profile = profile.Value;
             var recent = await Scrobbles.GetRecentAsync(Username, 1, 10, viewer);
             if (recent.Succeeded) _recent = recent.Value;
+            _nowPlaying = await Scrobbles.GetNowPlayingByUsernameAsync(Username);
         }
         else
         {

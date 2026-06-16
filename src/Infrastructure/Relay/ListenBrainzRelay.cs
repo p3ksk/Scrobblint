@@ -104,6 +104,41 @@ public sealed class ListenBrainzRelay : IListenBrainzRelay
         return RelayResult.Fail($"ListenBrainz HTTP {(int)response.StatusCode}: {Truncate(error)}");
     }
 
+    public async Task<RelayResult> SendNowPlayingAsync(ExternalConnection connection, string artist, string track, string? album, CancellationToken cancellationToken = default)
+    {
+        var root = Root(connection.ApiRoot);
+        var body = new
+        {
+            listen_type = "playing_now",
+            payload = new[]
+            {
+                new
+                {
+                    track_metadata = new
+                    {
+                        artist_name = artist,
+                        track_name = track,
+                        release_name = string.IsNullOrWhiteSpace(album) ? null : album
+                    }
+                }
+            }
+        };
+
+        var json = JsonSerializer.Serialize(body, SerializerOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{root}/1/submit-listens")
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Token", connection.Token);
+
+        using var response = await Client().SendAsync(request, cancellationToken);
+        if (response.IsSuccessStatusCode)
+            return RelayResult.Ok(1);
+
+        var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
+        return RelayResult.Fail($"ListenBrainz HTTP {(int)response.StatusCode}: {Truncate(errorText)}");
+    }
+
     private static string Root(string? apiRoot) =>
         string.IsNullOrWhiteSpace(apiRoot) ? DefaultApiRoot : apiRoot.TrimEnd('/');
 

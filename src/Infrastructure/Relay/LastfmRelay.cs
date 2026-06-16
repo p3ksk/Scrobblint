@@ -112,6 +112,29 @@ public sealed class LastfmRelay : ILastfmRelay
         return RelayResult.Ok(accepted);
     }
 
+    public async Task<RelayResult> SendNowPlayingAsync(ExternalConnection connection, string artist, string track, string? album, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured) return RelayResult.Fail("Last.fm is not configured.");
+
+        var parameters = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["method"] = "track.updateNowPlaying",
+            ["api_key"] = _options.ApiKey!,
+            ["sk"] = connection.Token,
+            ["artist"] = artist,
+            ["track"] = track
+        };
+        if (!string.IsNullOrWhiteSpace(album))
+            parameters["album"] = album!;
+        Sign(parameters);
+
+        using var doc = await PostAsync(parameters, cancellationToken);
+        if (TryGetError(doc.RootElement, out var error))
+            return RelayResult.Fail($"Last.fm: {error}");
+
+        return RelayResult.Ok(1);
+    }
+
     public async Task<RelayHistoryResult> GetRecentTracksAsync(
         string username, int page, int limit, long? toUnix, CancellationToken cancellationToken = default)
     {
