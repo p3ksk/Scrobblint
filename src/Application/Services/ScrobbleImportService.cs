@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
@@ -21,6 +22,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
     private readonly IScrobbleImportQueue _queue;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<ScrobbleImportService> _logger;
 
     public ScrobbleImportService(
@@ -31,6 +33,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         IScrobbleImportQueue queue,
         IUnitOfWork unitOfWork,
         IClock clock,
+        IMemoryCache cache,
         ILogger<ScrobbleImportService> logger)
     {
         _imports = imports;
@@ -40,6 +43,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         _queue = queue;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -143,6 +147,9 @@ public sealed class ScrobbleImportService : IScrobbleImportService
 
         _imports.Update(import);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // New listens landed — invalidate the user's cached statistics so the dashboard recomputes.
+        _cache.Remove(CacheKeys.Stats(import.UserId));
 
         return !finished;
     }

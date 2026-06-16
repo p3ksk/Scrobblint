@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Services;
 
 namespace Scrobblint.Application;
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IStatisticsService>(sp =>
             new CachedStatisticsService(
                 sp.GetRequiredService<StatisticsService>(),
+                sp.GetRequiredService<IUserRepository>(),
                 sp.GetRequiredService<IMemoryCache>()));
         services.AddScoped<IUserService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IExternalConnectionService>(sp => sp.GetRequiredService<ExternalConnectionService>());

@@ -56,12 +56,13 @@ public sealed class TestHost : IDisposable
 
         var importRepo = new ScrobbleImportRepository(Db, factory);
         var connectionRepo = new ExternalConnectionRepository(Db, factory);
+        var cache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
-        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, RelayQueue, new IScrobbleRelay[] { Lastfm }, Clock, new MemoryCache(Options.Create(new MemoryCacheOptions())), NullLogger<ScrobbleService>.Instance);
+        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, RelayQueue, new IScrobbleRelay[] { Lastfm }, Clock, cache, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
-        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, NullLogger<ScrobbleImportService>.Instance);
+        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, cache, NullLogger<ScrobbleImportService>.Instance);
     }
 
     /// <summary>Inserts a Last.fm connection so an import can be started.</summary>
