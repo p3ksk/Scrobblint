@@ -40,7 +40,11 @@ services:
       # Optional: enable relaying to Last.fm (get a key/secret at last.fm/api/account/create).
       # Lastfm__ApiKey: "your-lastfm-api-key"
       # Lastfm__ApiSecret: "your-lastfm-shared-secret"
+    volumes:
+      # Persist data-protection keys so antiforgery tokens and auth cookies survive restarts.
+      - scrobblint-data:/data
     restart: unless-stopped
 
 volumes:
   scrobblint-mysql:
+  scrobblint-data:

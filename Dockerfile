@@ -28,7 +28,6 @@ COPY --from=build /app ./
 RUN mkdir -p /data /data/keys
 ENV Database__Provider=SQLite \
     Database__ConnectionString="Data Source=/data/scrobblint.db" \
-    DOTNET_DATA_PROTECTION_KEYS_DIR="/data/keys" \
     ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080
 

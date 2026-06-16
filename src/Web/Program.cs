@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Components.Authorization;
 using Scrobblint.Api;
 using Scrobblint.Api.Authentication;
@@ -12,12 +13,17 @@ using Scrobblint.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- Data protection: persist the key ring so antiforgery tokens survive restarts ---
+// --- Data protection: persist the key ring so antiforgery tokens (and the auth cookie)
+// survive process restarts. Without this the keys are ephemeral and tokens minted by a
+// previous process can no longer be decrypted ("key not found in the key ring").
 var keysDir = builder.Environment.IsDevelopment()
     ? Path.Combine(builder.Environment.ContentRootPath, "..", "data", "keys")
     : "/data/keys";
 Directory.CreateDirectory(keysDir);
-Environment.SetEnvironmentVariable("DOTNET_DATA_PROTECTION_KEYS_DIR", keysDir);
+
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir))
+    .SetApplicationName("Scrobblint");
 
 // --- Razor components (static server-side rendering) -----------------------
 builder.Services.AddRazorComponents();
