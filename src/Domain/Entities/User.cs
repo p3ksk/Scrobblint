@@ -36,4 +36,5 @@ public class User
     // Navigation properties
     public UserSettings? Settings { get; set; }
     public ICollection<Scrobble> Scrobbles { get; set; } = new List<Scrobble>();
+    public ICollection<ExternalConnection> ExternalConnections { get; set; } = new List<ExternalConnection>();
 }

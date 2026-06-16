@@ -16,6 +16,10 @@ services:
       Seed__Admin__Username: "admin"
       Seed__Admin__Email: "admin@example.com"
       Seed__Admin__Password: "ChangeMe!123"
+      # Optional: enable relaying to Last.fm (get a key/secret at last.fm/api/account/create).
+      # ListenBrainz needs no server config — users just paste their token.
+      # Lastfm__ApiKey: "your-lastfm-api-key"
+      # Lastfm__ApiSecret: "your-lastfm-shared-secret"
     volumes:
       - scrobblint-data:/data
     restart: unless-stopped

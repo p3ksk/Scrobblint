@@ -15,6 +15,7 @@ public static class ApiModule
         api.MapAuthEndpoints();
         api.MapScrobbleEndpoints();
         api.MapUserEndpoints();
+        api.MapConnectionEndpoints();
         api.MapAdminEndpoints();
 
         return app;

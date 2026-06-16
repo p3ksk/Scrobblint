@@ -1,12 +1,15 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Abstractions.Security;
 using Scrobblint.Infrastructure.Configuration;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Providers;
 using Scrobblint.Infrastructure.Persistence.Repositories;
+using Scrobblint.Infrastructure.Relay;
 using Scrobblint.Infrastructure.Security;
 using Scrobblint.Infrastructure.Time;
 
@@ -22,25 +25,47 @@ public static class DependencyInjection
     {
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+        services.Configure<LastfmOptions>(configuration.GetSection(LastfmOptions.SectionName));
 
-        var dbOptions = configuration.GetSection(DatabaseOptions.SectionName).Get<DatabaseOptions>() ?? new DatabaseOptions();
-        var provider = DataStorageProviderFactory.Create(dbOptions);
-        var connectionString = DataStorageProviderFactory.ResolveConnectionString(dbOptions);
+        // Resolve the provider and connection lazily through the options system so configuration added
+        // late (e.g. by WebApplicationFactory in tests, or env vars) is honoured.
+        services.AddSingleton<IEfDataStorageProvider>(sp =>
+            DataStorageProviderFactory.Create(sp.GetRequiredService<IOptions<DatabaseOptions>>().Value));
+        services.AddSingleton<IDataStorageProvider>(sp => sp.GetRequiredService<IEfDataStorageProvider>());
 
-        // The chosen provider is available to the rest of the app via both abstractions.
-        services.AddSingleton<IEfDataStorageProvider>(provider);
-        services.AddSingleton<IDataStorageProvider>(provider);
-
-        services.AddDbContext<ScrobblintDbContext>(options => provider.Configure(options, connectionString));
+        services.AddDbContext<ScrobblintDbContext>((sp, options) =>
+        {
+            var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var provider = sp.GetRequiredService<IEfDataStorageProvider>();
+            provider.Configure(options, DataStorageProviderFactory.ResolveConnectionString(dbOptions));
+        });
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IScrobbleRepository, ScrobbleRepository>();
         services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
+        services.AddScoped<IExternalConnectionRepository, ExternalConnectionRepository>();
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
         services.AddSingleton<IClock, SystemClock>();
+
+        // --- Scrobble relaying to external services (Last.fm, ListenBrainz) ---
+        services.AddHttpClient(RelayHttpClient.Name, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Scrobblint/1.0 (+https://github.com/scrobblint)");
+        });
+
+        services.AddSingleton<ListenBrainzRelay>();
+        services.AddSingleton<LastfmRelay>();
+        services.AddSingleton<IListenBrainzRelay>(sp => sp.GetRequiredService<ListenBrainzRelay>());
+        services.AddSingleton<ILastfmRelay>(sp => sp.GetRequiredService<LastfmRelay>());
+        services.AddSingleton<IScrobbleRelay>(sp => sp.GetRequiredService<ListenBrainzRelay>());
+        services.AddSingleton<IScrobbleRelay>(sp => sp.GetRequiredService<LastfmRelay>());
+
+        services.AddSingleton<IScrobbleRelayQueue, ScrobbleRelayQueue>();
+        services.AddHostedService<ScrobbleRelayDispatcher>();
 
         return services;
     }

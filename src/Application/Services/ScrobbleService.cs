@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Common;
 using Scrobblint.Domain.Entities;
 using Scrobblint.Domain.Enums;
@@ -15,6 +16,7 @@ public sealed class ScrobbleService : IScrobbleService
     private readonly IUserRepository _users;
     private readonly IUserSettingsRepository _settings;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IScrobbleRelayQueue _relayQueue;
     private readonly IClock _clock;
     private readonly ILogger<ScrobbleService> _logger;
 
@@ -23,6 +25,7 @@ public sealed class ScrobbleService : IScrobbleService
         IUserRepository users,
         IUserSettingsRepository settings,
         IUnitOfWork unitOfWork,
+        IScrobbleRelayQueue relayQueue,
         IClock clock,
         ILogger<ScrobbleService> logger)
     {
@@ -30,6 +33,7 @@ public sealed class ScrobbleService : IScrobbleService
         _users = users;
         _settings = settings;
         _unitOfWork = unitOfWork;
+        _relayQueue = relayQueue;
         _clock = clock;
         _logger = logger;
     }
@@ -84,6 +88,13 @@ public sealed class ScrobbleService : IScrobbleService
 
         await _scrobbles.AddRangeAsync(entities, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Forward to any external services the user has linked. This is best-effort and runs on a
+        // background dispatcher, so it never blocks or fails the local scrobble.
+        var relayTracks = entities
+            .Select(e => new RelayTrack(e.Artist, e.Track, e.Album, Mappers.ToUnix(e.Timestamp)))
+            .ToList();
+        _relayQueue.Enqueue(new ScrobbleRelayJob(userId, relayTracks));
 
         _logger.LogInformation("Accepted {Count} scrobble(s) for user {UserId}", entities.Count, userId);
         return Result<ScrobbleSubmitResponse>.Ok(new ScrobbleSubmitResponse(entities.Count));

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Scrobblint.Api.Authentication;
 using Scrobblint.Application.Services;
 using Scrobblint.Domain.Enums;
+using Scrobblint.Shared.Connections;
 using Scrobblint.Shared.Users;
 
 namespace Scrobblint.Web.Authentication;
@@ -14,6 +15,8 @@ namespace Scrobblint.Web.Authentication;
 /// </summary>
 public static class UiFormEndpoints
 {
+    private const string LastfmStateCookie = "scrobblint.lastfm_state";
+
     public static IEndpointRouteBuilder MapUiFormEndpoints(this IEndpointRouteBuilder app)
     {
         var adminPolicy = new AuthorizationPolicyBuilder(CookieAuthenticationDefaults.AuthenticationScheme)
@@ -39,6 +42,74 @@ public static class UiFormEndpoints
 
             await users.UpdateSettingsAsync(context.User.GetUserId()!.Value, new UserSettingsDto(visibility, theme), context.RequestAborted);
             return Results.LocalRedirect("/settings?saved=1");
+        }).RequireAuthorization();
+
+        // ---- External connections (relay to Last.fm / ListenBrainz) ----
+        app.MapPost("/account/connections/listenbrainz", async (
+            HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            var form = await context.Request.ReadFormAsync();
+            var request = new ConnectListenBrainzRequest(form["token"].ToString(), form["apiRoot"].ToString());
+            var result = await svc.ConnectListenBrainzAsync(context.User.GetUserId()!.Value, request, context.RequestAborted);
+            return RedirectConnections(result);
+        }).RequireAuthorization();
+
+        // Last.fm web-authorization flow: redirect the user to Last.fm, then exchange the returned
+        // token for a session key on the callback. A state cookie guards against forged callbacks.
+        app.MapPost("/account/connections/lastfm/start", async (
+            HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+
+            var state = Guid.NewGuid().ToString("N");
+            context.Response.Cookies.Append(LastfmStateCookie, state, new CookieOptions
+            {
+                HttpOnly = true,
+                SameSite = SameSiteMode.Lax,
+                IsEssential = true,
+                MaxAge = TimeSpan.FromMinutes(10),
+                Path = "/account/connections"
+            });
+
+            var baseUrl = $"{context.Request.Scheme}://{context.Request.Host}";
+            var callbackUrl = $"{baseUrl}/account/connections/lastfm/callback?state={state}";
+            var result = svc.BeginLastfmAuth(callbackUrl);
+            return result.Succeeded
+                ? Results.Redirect(result.Value!)
+                : Results.LocalRedirect($"/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+        }).RequireAuthorization();
+
+        app.MapGet("/account/connections/lastfm/callback", async (
+            HttpContext context, string? token, string? state, IExternalConnectionService svc) =>
+        {
+            var expected = context.Request.Cookies[LastfmStateCookie];
+            context.Response.Cookies.Delete(LastfmStateCookie, new CookieOptions { Path = "/account/connections" });
+
+            if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(state) || state != expected)
+                return Results.LocalRedirect("/connections?error=Last.fm+authorization+was+cancelled+or+invalid.");
+
+            var result = await svc.CompleteLastfmAuthAsync(context.User.GetUserId()!.Value, token, context.RequestAborted);
+            return RedirectConnections(result);
+        }).RequireAuthorization();
+
+        app.MapPost("/account/connections/{provider}/toggle", async (
+            string provider, HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            if (!Enum.TryParse<ScrobbleProvider>(provider, true, out var p)) return Results.NotFound();
+            var enabled = context.Request.Form["enabled"] == "true";
+            await svc.SetEnabledAsync(context.User.GetUserId()!.Value, p, enabled, context.RequestAborted);
+            return Results.LocalRedirect("/connections");
+        }).RequireAuthorization();
+
+        app.MapPost("/account/connections/{provider}/disconnect", async (
+            string provider, HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            if (!Enum.TryParse<ScrobbleProvider>(provider, true, out var p)) return Results.NotFound();
+            await svc.DisconnectAsync(context.User.GetUserId()!.Value, p, context.RequestAborted);
+            return Results.LocalRedirect("/connections");
         }).RequireAuthorization();
 
         // ---- Admin ----
@@ -73,4 +144,9 @@ public static class UiFormEndpoints
         try { await antiforgery.ValidateRequestAsync(context); return true; }
         catch (AntiforgeryValidationException) { return false; }
     }
+
+    private static IResult RedirectConnections(Scrobblint.Application.Common.Result result) =>
+        result.Succeeded
+            ? Results.LocalRedirect("/connections?saved=1")
+            : Results.LocalRedirect($"/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
 }

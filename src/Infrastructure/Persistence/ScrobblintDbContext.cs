@@ -16,6 +16,7 @@ public class ScrobblintDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Scrobble> Scrobbles => Set<Scrobble>();
     public DbSet<UserSettings> UserSettings => Set<UserSettings>();
+    public DbSet<ExternalConnection> ExternalConnections => Set<ExternalConnection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

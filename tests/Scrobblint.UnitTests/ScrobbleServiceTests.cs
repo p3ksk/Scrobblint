@@ -51,6 +51,19 @@ public class ScrobbleServiceTests
     }
 
     [Fact]
+    public async Task Submit_enqueues_relay_job_for_forwarding()
+    {
+        using var host = new TestHost();
+        var userId = await SeedUserAsync(host);
+
+        await host.Scrobbles.SubmitAsync(userId, new ScrobbleRequest("Radiohead", "Idioteque", "Kid A"));
+
+        var job = Assert.Single(host.RelayQueue.Jobs);
+        Assert.Equal(userId, job.UserId);
+        Assert.Equal("Idioteque", Assert.Single(job.Tracks).Track);
+    }
+
+    [Fact]
     public async Task Submit_batch_accepts_all()
     {
         using var host = new TestHost();

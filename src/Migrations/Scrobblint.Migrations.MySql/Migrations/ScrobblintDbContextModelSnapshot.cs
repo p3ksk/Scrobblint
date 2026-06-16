@@ -22,6 +22,45 @@ namespace Scrobblint.Migrations.MySql.Migrations
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.ExternalConnection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("char(36)");
+
+                    b.Property<string>("ApiRoot")
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ExternalUsername")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("char(36)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("ExternalConnections", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.Scrobble", b =>
                 {
                     b.Property<Guid>("Id")
@@ -132,6 +171,17 @@ namespace Scrobblint.Migrations.MySql.Migrations
                     b.ToTable("UserSettings", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.ExternalConnection", b =>
+                {
+                    b.HasOne("Scrobblint.Domain.Entities.User", "User")
+                        .WithMany("ExternalConnections")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.Scrobble", b =>
                 {
                     b.HasOne("Scrobblint.Domain.Entities.User", "User")
@@ -156,6 +206,8 @@ namespace Scrobblint.Migrations.MySql.Migrations
 
             modelBuilder.Entity("Scrobblint.Domain.Entities.User", b =>
                 {
+                    b.Navigation("ExternalConnections");
+
                     b.Navigation("Scrobbles");
 
                     b.Navigation("Settings");

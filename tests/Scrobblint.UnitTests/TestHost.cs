@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Scrobblint.Application.Abstractions;
+using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Repositories;
@@ -18,6 +19,7 @@ public sealed class TestHost : IDisposable
     private readonly SqliteConnection _connection;
     public ScrobblintDbContext Db { get; }
     public FakeClock Clock { get; } = new();
+    public RecordingRelayQueue RelayQueue { get; } = new();
 
     public AuthService Auth { get; }
     public ScrobbleService Scrobbles { get; }
@@ -43,7 +45,7 @@ public sealed class TestHost : IDisposable
         var tokens = new TokenGenerator();
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
-        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, unitOfWork, Clock, NullLogger<ScrobbleService>.Instance);
+        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, unitOfWork, RelayQueue, Clock, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
     }
@@ -58,4 +60,24 @@ public sealed class TestHost : IDisposable
 public sealed class FakeClock : IClock
 {
     public DateTime UtcNow { get; set; } = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+}
+
+/// <summary>Captures relay jobs instead of forwarding, so tests can assert what would be relayed.</summary>
+public sealed class RecordingRelayQueue : IScrobbleRelayQueue
+{
+    public List<ScrobbleRelayJob> Jobs { get; } = new();
+
+    public bool Enqueue(ScrobbleRelayJob job)
+    {
+        Jobs.Add(job);
+        return true;
+    }
+
+    public async IAsyncEnumerable<ScrobbleRelayJob> DequeueAllAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        foreach (var job in Jobs)
+            yield return job;
+        await Task.CompletedTask;
+    }
 }

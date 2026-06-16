@@ -5,6 +5,7 @@ A lightweight, self-hosted **scrobbling service** built with **.NET 10**, **ASP.
 - Register, then authenticate machine clients with a personal **API token** (`Authorization: Token …`) — no OAuth, no external identity providers.
 - Submit scrobbles individually or in batches.
 - Browse recent listens, a statistics dashboard (top artists/albums/tracks, monthly & daily charts) and public user profiles.
+- **Relay every scrobble onward to Last.fm and/or ListenBrainz** — Scrobblint works as a hub.
 - Manage your token and profile settings; administrators can manage users.
 - Provider-agnostic storage: **SQLite** (default) and **MySQL** today, with a clean path to PostgreSQL / SQL Server / MongoDB.
 
@@ -124,6 +125,11 @@ Configuration is read from `appsettings.json`, environment variables (`Section__
       "Email": "admin@example.com",
       "Password": "ChangeMe!123"
     }
+  },
+  "Lastfm": {
+    "ApiKey": "",                               // required to enable Last.fm relaying
+    "ApiSecret": "",
+    "ApiRoot": "https://ws.audioscrobbler.com/2.0/"
   }
 }
 ```
@@ -177,6 +183,17 @@ Authorization: Token YOUR_TOKEN
 | `GET /api/user/{username}/recent?page=&pageSize=` | Paged recent listens |
 | `GET /api/user/{username}/stats` | Totals, top artists/albums/tracks, monthly & daily charts |
 
+### Connections (relay to external services, require token)
+
+| Method & path | Description |
+|---|---|
+| `GET /api/connections` | The caller's linked services + which providers this server supports |
+| `POST /api/connections/listenbrainz` | Link ListenBrainz (`{ "token", "apiRoot?" }`) — token validated first |
+| `POST /api/connections/lastfm/begin` | Start Last.fm web auth (`{ "callbackUrl" }`) → returns `{ "authorizeUrl" }` |
+| `POST /api/connections/lastfm/complete` | Finish Last.fm linking (`{ "token" }` returned to your callback) |
+| `POST /api/connections/{provider}/enabled?value=true|false` | Pause / resume relaying |
+| `DELETE /api/connections/{provider}` | Unlink a service |
+
 ### Admin (require admin token)
 
 | Method & path | Description |
@@ -214,9 +231,42 @@ curl http://localhost:5269/api/user/alice/recent
 | `/register` | `/recent` | `/admin/users/{id}` (disable/enable, regenerate token) |
 | `/login` | `/stats` | |
 | `/user/{username}` profile | `/token` (view / regenerate) | |
+| | `/connections` (Last.fm / ListenBrainz) | |
 | | `/settings` (visibility, theme) | |
 
 The UI is rendered with **static server-side rendering** (minimal JavaScript). Forms post to small endpoints that validate the **antiforgery** token and write the auth cookie.
+
+---
+
+## Relaying scrobbles to Last.fm & ListenBrainz
+
+Each user can link external accounts on the **Connections** page (or via the API). When linked and
+enabled, every listen they submit to Scrobblint is forwarded onward:
+
+- **ListenBrainz** — the user pastes their token (from `listenbrainz.org/profile`). An optional API
+  root lets you target a self-hosted ListenBrainz instance. The token is validated before saving.
+- **Last.fm** — requires a registered application **API key + shared secret** in server config
+  (`Lastfm:ApiKey` / `Lastfm:ApiSecret`, from <https://www.last.fm/api/account/create>). Linking uses
+  the [web-authorization flow](https://www.last.fm/api/authspec): the user is redirected to Last.fm to
+  approve Scrobblint, Last.fm calls back with a token, and we exchange it for a session key via
+  `auth.getSession`. **No password is ever handled** — only the session key is stored. A short-lived
+  state cookie protects the callback. If the server has no Last.fm key/secret, the option is hidden.
+
+  > The API key/secret cannot be replaced by a session key: Last.fm requires every scrobble to be
+  > **signed** with the shared secret (`api_sig`), so the session key is always used *alongside* the
+  > app credentials, never instead of them.
+
+How it works internally:
+
+- On submission, `ScrobbleService` enqueues a job on an in-process `IScrobbleRelayQueue` (a
+  `System.Threading.Channels` channel) **after** the listen is saved locally.
+- A background `ScrobbleRelayDispatcher` (`BackgroundService`) drains the queue, loads the user's
+  enabled connections, and calls the matching `IScrobbleRelay` (`ListenBrainzRelay` / `LastfmRelay`).
+- Relaying is **best-effort**: failures are logged and never affect the local scrobble or the API
+  response. Listens are batched (ListenBrainz `import`, Last.fm up to 50 per request).
+
+Adding another target (e.g. a different scrobble service) means implementing `IScrobbleRelay` and
+registering it — the dispatcher picks it up automatically.
 
 ---
 

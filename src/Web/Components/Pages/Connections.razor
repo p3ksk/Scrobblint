@@ -1,0 +1,117 @@
+@page "/connections"
+@attribute [Authorize]
+@using Scrobblint.Shared.Connections
+@inject IExternalConnectionService ConnectionService
+
+<PageTitle>Connections — Scrobblint</PageTitle>
+
+<h1>External connections</h1>
+<p class="muted">Relay every listen you submit to Scrobblint onward to these services.</p>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-error">@Error</div>
+}
+else if (Saved == 1)
+{
+    <div class="alert alert-success">Connection updated.</div>
+}
+
+@if (_data is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    @* ---- ListenBrainz ---- *@
+    <div class="card narrow">
+        <h2>ListenBrainz</h2>
+        @{ var lb = Find(ScrobbleProvider.ListenBrainz); }
+        @if (lb is not null)
+        {
+            <p>
+                Connected as <strong>@(lb.ExternalUsername ?? "your account")</strong>
+                @if (lb.IsEnabled) { <span class="badge badge-ok">relaying</span> } else { <span class="badge">paused</span> }
+            </p>
+            @if (!string.IsNullOrEmpty(lb.ApiRoot)) { <p class="muted">Instance: @lb.ApiRoot</p> }
+            <div class="action-row">
+                <form method="post" action="/account/connections/listenbrainz/toggle">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="enabled" value="@((!lb.IsEnabled).ToString().ToLower())" />
+                    <button class="btn" type="submit">@(lb.IsEnabled ? "Pause" : "Resume")</button>
+                </form>
+                <form method="post" action="/account/connections/listenbrainz/disconnect">
+                    <AntiforgeryToken />
+                    <button class="btn btn-danger" type="submit">Disconnect</button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <form method="post" action="/account/connections/listenbrainz">
+                <AntiforgeryToken />
+                <label>User token
+                    <input name="token" required placeholder="from listenbrainz.org/profile" />
+                </label>
+                <label>Instance API root (optional)
+                    <input name="apiRoot" placeholder="https://api.listenbrainz.org" />
+                </label>
+                <button class="btn btn-primary" type="submit">Connect ListenBrainz</button>
+            </form>
+        }
+    </div>
+
+    @* ---- Last.fm ---- *@
+    <div class="card narrow">
+        <h2>Last.fm</h2>
+        @{ var fm = Find(ScrobbleProvider.Lastfm); }
+        @if (!_data.LastfmAvailable && fm is null)
+        {
+            <p class="muted">Last.fm relaying is not configured on this server (no API key/secret).</p>
+        }
+        else if (fm is not null)
+        {
+            <p>
+                Connected as <strong>@(fm.ExternalUsername ?? "your account")</strong>
+                @if (fm.IsEnabled) { <span class="badge badge-ok">relaying</span> } else { <span class="badge">paused</span> }
+            </p>
+            <div class="action-row">
+                <form method="post" action="/account/connections/lastfm/toggle">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="enabled" value="@((!fm.IsEnabled).ToString().ToLower())" />
+                    <button class="btn" type="submit">@(fm.IsEnabled ? "Pause" : "Resume")</button>
+                </form>
+                <form method="post" action="/account/connections/lastfm/disconnect">
+                    <AntiforgeryToken />
+                    <button class="btn btn-danger" type="submit">Disconnect</button>
+                </form>
+            </div>
+        }
+        else
+        {
+            <p class="muted">You'll be sent to Last.fm to authorize Scrobblint. Your password is never shared with this server.</p>
+            <form method="post" action="/account/connections/lastfm/start">
+                <AntiforgeryToken />
+                <button class="btn btn-primary" type="submit">Authorize with Last.fm</button>
+            </form>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+    [SupplyParameterFromQuery] private int? Saved { get; set; }
+
+    private ConnectionsResponse? _data;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState!).User;
+        var result = await ConnectionService.GetConnectionsAsync(user.GetUserId()!.Value);
+        if (result.Succeeded) _data = result.Value;
+    }
+
+    private ExternalConnectionDto? Find(ScrobbleProvider provider) =>
+        _data?.Connections.FirstOrDefault(c => c.Provider == provider);
+}
