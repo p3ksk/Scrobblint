@@ -56,9 +56,11 @@ builder.Services
                 if (userId is null) { ctx.RejectPrincipal(); return; }
 
                 // Resolve from a fresh scope to avoid DbContext concurrency with Blazor SSR rendering.
+                // This validation runs on every request; intentionally not tied to RequestAborted so a
+                // user clicking quickly between pages can't abandon the lookup mid-query.
                 using var scope = ctx.HttpContext.RequestServices.CreateScope();
                 var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
-                var user = await users.GetByIdAsync(userId.Value, ctx.HttpContext.RequestAborted);
+                var user = await users.GetByIdAsync(userId.Value, CancellationToken.None);
 
                 if (user is null || user.IsDisabled)
                 {
