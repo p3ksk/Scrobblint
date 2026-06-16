@@ -67,6 +67,10 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         _context.Scrobbles.Where(s => s.UserId == userId)
             .Select(s => new { s.Artist, s.Track }).Distinct().CountAsync(cancellationToken);
 
+    public Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        _context.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
+            .Select(s => new { s.Artist, s.Album }).Distinct().CountAsync(cancellationToken);
+
     public async Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
     {
         var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
@@ -127,5 +131,49 @@ public sealed class ScrobbleRepository : IScrobbleRepository
             .ToListAsync(cancellationToken);
 
         return rows.Select(r => new ChartPoint($"{r.Year:D4}-{r.Month:D2}-{r.Day:D2}", r.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+            .GroupBy(s => s.Timestamp.Hour)
+            .Select(g => new { Hour = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var counts = rows.ToDictionary(r => r.Hour, r => r.Count);
+        var result = new List<ChartPoint>(AppConstants.HourlyChartHours);
+        for (var hour = 0; hour < AppConstants.HourlyChartHours; hour++)
+            result.Add(new ChartPoint(hour.ToString("D2"), counts.GetValueOrDefault(hour)));
+        return result;
+    }
+
+    public async Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+            .GroupBy(s => s.Timestamp.DayOfWeek)
+            .Select(g => new { DayOfWeek = (int)g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var counts = rows.ToDictionary(r => r.DayOfWeek, r => r.Count);
+        var labels = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+        var result = new List<ChartPoint>(AppConstants.DayOfWeekChartDays);
+        for (var day = 0; day < AppConstants.DayOfWeekChartDays; day++)
+        {
+            // Monday = 1 ... Saturday = 6, Sunday = 0.
+            var dayOfWeek = day < 6 ? day + 1 : 0;
+            result.Add(new ChartPoint(labels[day], counts.GetValueOrDefault(dayOfWeek)));
+        }
+        return result;
+    }
+
+    public async Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+            .GroupBy(s => s.Timestamp.Year)
+            .Select(g => new { Year = g.Key, Count = g.Count() })
+            .OrderBy(r => r.Year)
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(r => new ChartPoint(r.Year.ToString("D4"), r.Count)).ToList();
     }
 }

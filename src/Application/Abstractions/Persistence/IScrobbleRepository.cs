@@ -32,6 +32,8 @@ public interface IScrobbleRepository
 
     Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(
         Guid userId, int limit, CancellationToken cancellationToken = default);
 
@@ -48,4 +50,16 @@ public interface IScrobbleRepository
     /// <summary>Listens grouped by day (UTC) over the trailing <paramref name="days"/> window.</summary>
     Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(
         Guid userId, int days, CancellationToken cancellationToken = default);
+
+    /// <summary>Listens grouped by hour of day (UTC), all 24 hours including zeros.</summary>
+    Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(
+        Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Listens grouped by day of week (UTC), all seven days including zeros.</summary>
+    Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(
+        Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Listens grouped by calendar year (UTC), oldest first.</summary>
+    Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(
+        Guid userId, CancellationToken cancellationToken = default);
 }

@@ -16,6 +16,7 @@ else
         <div class="stat-card"><span class="stat-num">@_stats.TotalScrobbles</span><span class="stat-label">Total scrobbles</span></div>
         <div class="stat-card"><span class="stat-num">@_stats.UniqueArtists</span><span class="stat-label">Unique artists</span></div>
         <div class="stat-card"><span class="stat-num">@_stats.UniqueTracks</span><span class="stat-label">Unique tracks</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueAlbums</span><span class="stat-label">Unique albums</span></div>
     </div>
 
     <div class="grid-3">
@@ -49,19 +50,84 @@ else
     </div>
 
     <div class="card">
-        <h2>Monthly chart</h2>
-        @RenderBars(_stats.MonthlyChart)
-    </div>
+        <nav class="settings-nav" aria-label="Charts">
+            <a class='settings-tab @TabClass("monthly")' href="/stats?tab=monthly">Monthly</a>
+            <a class='settings-tab @TabClass("daily")' href="/stats?tab=daily">Daily</a>
+            <a class='settings-tab @TabClass("hourly")' href="/stats?tab=hourly">Hourly</a>
+            <a class='settings-tab @TabClass("weekly")' href="/stats?tab=weekly">Day of week</a>
+            <a class='settings-tab @TabClass("yearly")' href="/stats?tab=yearly">Yearly</a>
+        </nav>
 
-    <div class="card">
-        <h2>Daily chart (last 30 days)</h2>
-        @RenderBars(_stats.DailyChart)
+        @switch (_tab ?? "monthly")
+        {
+            case "monthly":
+                <h2>Monthly chart</h2>
+                @RenderBars(MonthlyPageItems)
+                @if (MonthlyTotalPages > 1)
+                {
+                    <div class="pager">
+                        @if (_monthlyPage > 0)
+                        {
+                            <a class="btn" href="/stats?tab=monthly&monthlyPage=@(_monthlyPage - 1)">← Previous</a>
+                        }
+                        else
+                        {
+                            <span class="btn" disabled aria-disabled="true">← Previous</span>
+                        }
+                        <span>Page @(_monthlyPage + 1) of @MonthlyTotalPages</span>
+                        @if (_monthlyPage < MonthlyTotalPages - 1)
+                        {
+                            <a class="btn" href="/stats?tab=monthly&monthlyPage=@(_monthlyPage + 1)">Next →</a>
+                        }
+                        else
+                        {
+                            <span class="btn" disabled aria-disabled="true">Next →</span>
+                        }
+                    </div>
+                }
+                break;
+            case "daily":
+                <h2>Daily chart (last 30 days)</h2>
+                @RenderBars(_stats.DailyChart)
+                break;
+            case "hourly":
+                <h2>Hourly chart</h2>
+                @RenderBars(_stats.HourlyChart)
+                break;
+            case "weekly":
+                <h2>Day of week</h2>
+                @RenderBars(_stats.DayOfWeekChart)
+                break;
+            case "yearly":
+                <h2>Yearly chart</h2>
+                @RenderBars(_stats.YearlyChart)
+                break;
+        }
     </div>
 }
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] private string? _tab { get; set; }
+    [SupplyParameterFromQuery(Name = "monthlyPage")] private int _monthlyPage { get; set; }
     private StatsResponse? _stats;
+    private const int MonthlyPageSize = 12;
+
+    private int MonthlyTotalPages => _stats is null ? 0 : (int)Math.Ceiling(_stats.MonthlyChart.Count / (double)MonthlyPageSize);
+
+    private IReadOnlyList<ChartPoint> MonthlyPageItems
+    {
+        get
+        {
+            if (_stats is null || MonthlyTotalPages == 0) return Array.Empty<ChartPoint>();
+            var page = Math.Clamp(_monthlyPage, 0, MonthlyTotalPages - 1);
+            var reversed = _stats.MonthlyChart.Reverse().ToList();
+            return reversed.Skip(page * MonthlyPageSize).Take(MonthlyPageSize).ToList();
+        }
+    }
+
+    private string TabClass(string tab) =>
+        (_tab ?? "monthly") == tab ? "active" : "";
 
     protected override async Task OnInitializedAsync()
     {

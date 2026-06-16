@@ -15,6 +15,12 @@ public static class AppConstants
     /// <summary>Trailing window (days) for the daily listening chart.</summary>
     public const int DailyChartDays = 30;
 
+    /// <summary>Hours shown on the hourly listening distribution chart.</summary>
+    public const int HourlyChartHours = 24;
+
+    /// <summary>Days shown on the day-of-week listening distribution chart.</summary>
+    public const int DayOfWeekChartDays = 7;
+
     public const int UsernameMinLength = 3;
     public const int UsernameMaxLength = 32;
     public const int PasswordMinLength = 8;

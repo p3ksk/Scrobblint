@@ -19,8 +19,12 @@ public sealed record StatsResponse(
     int TotalScrobbles,
     int UniqueArtists,
     int UniqueTracks,
+    int UniqueAlbums,
     IReadOnlyList<ArtistCount> TopArtists,
     IReadOnlyList<AlbumCount> TopAlbums,
     IReadOnlyList<TrackCount> TopTracks,
     IReadOnlyList<ChartPoint> MonthlyChart,
-    IReadOnlyList<ChartPoint> DailyChart);
+    IReadOnlyList<ChartPoint> DailyChart,
+    IReadOnlyList<ChartPoint> HourlyChart,
+    IReadOnlyList<ChartPoint> DayOfWeekChart,
+    IReadOnlyList<ChartPoint> YearlyChart);

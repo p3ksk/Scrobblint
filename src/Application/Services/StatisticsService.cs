@@ -36,13 +36,18 @@ public sealed class StatisticsService : IStatisticsService
         var total = await _scrobbles.CountAsync(user.Id, cancellationToken);
         var uniqueArtists = await _scrobbles.CountDistinctArtistsAsync(user.Id, cancellationToken);
         var uniqueTracks = await _scrobbles.CountDistinctTracksAsync(user.Id, cancellationToken);
+        var uniqueAlbums = await _scrobbles.CountDistinctAlbumsAsync(user.Id, cancellationToken);
         var topArtists = await _scrobbles.GetTopArtistsAsync(user.Id, AppConstants.TopListSize, cancellationToken);
         var topAlbums = await _scrobbles.GetTopAlbumsAsync(user.Id, AppConstants.TopListSize, cancellationToken);
         var topTracks = await _scrobbles.GetTopTracksAsync(user.Id, AppConstants.TopListSize, cancellationToken);
         var monthly = await _scrobbles.GetMonthlyChartAsync(user.Id, cancellationToken);
         var daily = await _scrobbles.GetDailyChartAsync(user.Id, AppConstants.DailyChartDays, cancellationToken);
+        var hourly = await _scrobbles.GetHourlyChartAsync(user.Id, cancellationToken);
+        var dayOfWeek = await _scrobbles.GetDayOfWeekChartAsync(user.Id, cancellationToken);
+        var yearly = await _scrobbles.GetYearlyChartAsync(user.Id, cancellationToken);
 
         return Result<StatsResponse>.Ok(new StatsResponse(
-            total, uniqueArtists, uniqueTracks, topArtists, topAlbums, topTracks, monthly, daily));
+            total, uniqueArtists, uniqueTracks, uniqueAlbums,
+            topArtists, topAlbums, topTracks, monthly, daily, hourly, dayOfWeek, yearly));
     }
 }
