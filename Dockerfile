@@ -24,10 +24,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 COPY --from=build /app ./
 
-# SQLite database (and any future file state) lives here; mount a volume to persist it.
-RUN mkdir -p /data
+# SQLite database and data-protection keys live here; mount a volume to persist them.
+RUN mkdir -p /data /data/keys
 ENV Database__Provider=SQLite \
     Database__ConnectionString="Data Source=/data/scrobblint.db" \
+    DOTNET_DATA_PROTECTION_KEYS_DIR="/data/keys" \
     ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080
 

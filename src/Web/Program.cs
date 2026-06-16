@@ -12,6 +12,13 @@ using Scrobblint.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --- Data protection: persist the key ring so antiforgery tokens survive restarts ---
+var keysDir = builder.Environment.IsDevelopment()
+    ? Path.Combine(builder.Environment.ContentRootPath, "..", "data", "keys")
+    : "/data/keys";
+Directory.CreateDirectory(keysDir);
+Environment.SetEnvironmentVariable("DOTNET_DATA_PROTECTION_KEYS_DIR", keysDir);
+
 // --- Razor components (static server-side rendering) -----------------------
 builder.Services.AddRazorComponents();
 
@@ -40,8 +47,12 @@ builder.Services
             OnValidatePrincipal = async ctx =>
             {
                 var userId = ctx.Principal?.GetUserId();
-                var users = ctx.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
-                var user = userId is null ? null : await users.GetByIdAsync(userId.Value, ctx.HttpContext.RequestAborted);
+                if (userId is null) { ctx.RejectPrincipal(); return; }
+
+                // Resolve from a fresh scope to avoid DbContext concurrency with Blazor SSR rendering.
+                using var scope = ctx.HttpContext.RequestServices.CreateScope();
+                var users = scope.ServiceProvider.GetRequiredService<IUserRepository>();
+                var user = await users.GetByIdAsync(userId.Value, ctx.HttpContext.RequestAborted);
 
                 if (user is null || user.IsDisabled)
                 {

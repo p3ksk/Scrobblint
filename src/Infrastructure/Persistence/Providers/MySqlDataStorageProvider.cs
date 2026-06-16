@@ -24,6 +24,9 @@ public sealed class MySqlDataStorageProvider : IEfDataStorageProvider
     {
         var version = new MySqlServerVersion(_serverVersion);
         options.UseMySql(connectionString, version, mysql =>
-            mysql.MigrationsAssembly(MigrationsAssemblyName));
+        {
+            mysql.MigrationsAssembly(MigrationsAssemblyName);
+            mysql.EnableRetryOnFailure(3, TimeSpan.FromSeconds(5), null);
+        });
     }
 }
