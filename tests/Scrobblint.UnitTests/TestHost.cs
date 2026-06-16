@@ -43,15 +43,19 @@ public sealed class TestHost : IDisposable
         Db = new ScrobblintDbContext(options);
         Db.Database.EnsureCreated();
 
-        var userRepo = new UserRepository(Db);
-        var scrobbleRepo = new ScrobbleRepository(Db);
-        var settingsRepo = new UserSettingsRepository(Db);
+        // Reads now resolve a fresh context from a factory. In tests every context shares the one
+        // open in-memory SQLite connection, so reads still see what writes (on Db) have committed.
+        var factory = new SharedConnectionContextFactory(options);
+
+        var userRepo = new UserRepository(Db, factory);
+        var scrobbleRepo = new ScrobbleRepository(Db, factory);
+        var settingsRepo = new UserSettingsRepository(Db, factory);
         var unitOfWork = new UnitOfWork(Db);
         var hasher = new Pbkdf2PasswordHasher();
         var tokens = new TokenGenerator();
 
-        var importRepo = new ScrobbleImportRepository(Db);
-        var connectionRepo = new ExternalConnectionRepository(Db);
+        var importRepo = new ScrobbleImportRepository(Db, factory);
+        var connectionRepo = new ExternalConnectionRepository(Db, factory);
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
         Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, RelayQueue, new IScrobbleRelay[] { Lastfm }, Clock, new MemoryCache(Options.Create(new MemoryCacheOptions())), NullLogger<ScrobbleService>.Instance);
@@ -80,6 +84,17 @@ public sealed class TestHost : IDisposable
         Db.Dispose();
         _connection.Dispose();
     }
+}
+
+/// <summary>
+/// Test context factory: every created context shares the host's single open in-memory SQLite
+/// connection (captured in <paramref name="options"/>), so factory-based reads see committed writes.
+/// </summary>
+public sealed class SharedConnectionContextFactory : IDbContextFactory<ScrobblintDbContext>
+{
+    private readonly DbContextOptions<ScrobblintDbContext> _options;
+    public SharedConnectionContextFactory(DbContextOptions<ScrobblintDbContext> options) => _options = options;
+    public ScrobblintDbContext CreateDbContext() => new(_options);
 }
 
 public sealed class FakeClock : IClock

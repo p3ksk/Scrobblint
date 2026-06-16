@@ -9,44 +9,63 @@ namespace Scrobblint.Infrastructure.Persistence.Repositories;
 public sealed class UserRepository : IUserRepository
 {
     private readonly ScrobblintDbContext _context;
+    private readonly IDbContextFactory<ScrobblintDbContext> _factory;
 
-    public UserRepository(ScrobblintDbContext context) => _context = context;
+    // Reads use a short-lived context from the factory (each operation gets its own, so concurrent
+    // Blazor rendering can never share one and trip "a second operation was started…"); writes share
+    // the scoped _context with the unit of work so a transaction spans multiple repositories.
+    public UserRepository(ScrobblintDbContext context, IDbContextFactory<ScrobblintDbContext> factory)
+    {
+        _context = context;
+        _factory = factory;
+    }
 
-    public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-        _context.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+    }
 
-    public Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default)
     {
         var normalized = username.Trim().ToLower();
-        return _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized, cancellationToken);
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == normalized, cancellationToken);
     }
 
-    public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalized = email.Trim().ToLower();
-        return _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, cancellationToken);
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalized, cancellationToken);
     }
 
-    public Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByUsernameOrEmailAsync(string usernameOrEmail, CancellationToken cancellationToken = default)
     {
         var normalized = usernameOrEmail.Trim().ToLower();
-        return _context.Users.FirstOrDefaultAsync(
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.FirstOrDefaultAsync(
             u => u.Username.ToLower() == normalized || u.Email.ToLower() == normalized, cancellationToken);
     }
 
-    public Task<User?> GetByApiTokenAsync(string apiToken, CancellationToken cancellationToken = default) =>
-        _context.Users.FirstOrDefaultAsync(u => u.ApiToken == apiToken, cancellationToken);
-
-    public Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByApiTokenAsync(string apiToken, CancellationToken cancellationToken = default)
     {
-        var normalized = username.Trim().ToLower();
-        return _context.Users.AnyAsync(u => u.Username.ToLower() == normalized, cancellationToken);
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.FirstOrDefaultAsync(u => u.ApiToken == apiToken, cancellationToken);
     }
 
-    public Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<bool> UsernameExistsAsync(string username, CancellationToken cancellationToken = default)
+    {
+        var normalized = username.Trim().ToLower();
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.AnyAsync(u => u.Username.ToLower() == normalized, cancellationToken);
+    }
+
+    public async Task<bool> EmailExistsAsync(string email, CancellationToken cancellationToken = default)
     {
         var normalized = email.Trim().ToLower();
-        return _context.Users.AnyAsync(u => u.Email.ToLower() == normalized, cancellationToken);
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.AnyAsync(u => u.Email.ToLower() == normalized, cancellationToken);
     }
 
     public async Task AddAsync(User user, CancellationToken cancellationToken = default) =>
@@ -57,7 +76,8 @@ public sealed class UserRepository : IUserRepository
     public async Task<(IReadOnlyList<AdminUserListItem> Items, int TotalCount)> GetAdminListAsync(
         int page, int pageSize, string? search, CancellationToken cancellationToken = default)
     {
-        var query = _context.Users.AsNoTracking();
+        await using var db = _factory.CreateDbContext();
+        var query = db.Users.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -81,7 +101,7 @@ public sealed class UserRepository : IUserRepository
                 u.CreatedAt,
                 u.IsAdmin,
                 u.IsDisabled,
-                ScrobbleCount = _context.Scrobbles.Count(s => s.UserId == u.Id)
+                ScrobbleCount = db.Scrobbles.Count(s => s.UserId == u.Id)
             })
             .ToListAsync(cancellationToken);
 

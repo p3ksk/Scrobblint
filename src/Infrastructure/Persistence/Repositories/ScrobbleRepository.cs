@@ -9,8 +9,15 @@ namespace Scrobblint.Infrastructure.Persistence.Repositories;
 public sealed class ScrobbleRepository : IScrobbleRepository
 {
     private readonly ScrobblintDbContext _context;
+    private readonly IDbContextFactory<ScrobblintDbContext> _factory;
 
-    public ScrobbleRepository(ScrobblintDbContext context) => _context = context;
+    // Reads use a short-lived context from the factory (one per operation, never shared across
+    // concurrent renders); writes share the scoped _context with the unit of work.
+    public ScrobbleRepository(ScrobblintDbContext context, IDbContextFactory<ScrobblintDbContext> factory)
+    {
+        _context = context;
+        _factory = factory;
+    }
 
     public async Task AddAsync(Scrobble scrobble, CancellationToken cancellationToken = default) =>
         await _context.Scrobbles.AddAsync(scrobble, cancellationToken);
@@ -22,7 +29,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         Guid userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {
         // Narrow window (one page worth of consecutive listens): uses the (UserId, Timestamp) index.
-        var rows = await _context.Scrobbles.AsNoTracking()
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
             .Where(s => s.UserId == userId && s.Timestamp >= fromUtc && s.Timestamp <= toUtc)
             .Select(s => new { s.Artist, s.Track, s.Timestamp })
             .ToListAsync(cancellationToken);
@@ -36,7 +44,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
     public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
         Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
     {
-        var baseQuery = _context.Scrobbles.AsNoTracking().Where(s => s.UserId == userId);
+        await using var db = _factory.CreateDbContext();
+        var baseQuery = db.Scrobbles.AsNoTracking().Where(s => s.UserId == userId);
 
         var total = await baseQuery.CountAsync(cancellationToken);
         var items = await baseQuery
@@ -49,31 +58,47 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return (items, total);
     }
 
-    public Task<Scrobble?> GetLatestAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _context.Scrobbles.AsNoTracking()
+    public async Task<Scrobble?> GetLatestAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
             .Where(s => s.UserId == userId)
             .OrderByDescending(s => s.Timestamp)
             .ThenByDescending(s => s.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
+    }
 
-    public Task<int> CountAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _context.Scrobbles.Where(s => s.UserId == userId).CountAsync(cancellationToken);
+    public async Task<int> CountAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.Where(s => s.UserId == userId).CountAsync(cancellationToken);
+    }
 
-    public Task<int> CountDistinctArtistsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _context.Scrobbles.Where(s => s.UserId == userId)
+    public async Task<int> CountDistinctArtistsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.Where(s => s.UserId == userId)
             .Select(s => s.Artist).Distinct().CountAsync(cancellationToken);
+    }
 
-    public Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _context.Scrobbles.Where(s => s.UserId == userId)
+    public async Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.Where(s => s.UserId == userId)
             .Select(s => new { s.Artist, s.Track }).Distinct().CountAsync(cancellationToken);
+    }
 
-    public Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-        _context.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
+    public async Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
             .Select(s => new { s.Artist, s.Album }).Distinct().CountAsync(cancellationToken);
+    }
 
     public async Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => s.Artist)
             .Select(g => new { Artist = g.Key, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Artist)
@@ -85,7 +110,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task<IReadOnlyList<AlbumCount>> GetTopAlbumsAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
             .GroupBy(s => new { s.Artist, Album = s.Album! })
             .Select(g => new { g.Key.Artist, g.Key.Album, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Album)
@@ -97,7 +123,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => new { s.Artist, s.Track })
             .Select(g => new { g.Key.Artist, g.Key.Track, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Track)
@@ -110,7 +137,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
     public async Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         // Group by calendar month in the database; format the label in memory.
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => new { s.Timestamp.Year, s.Timestamp.Month })
             .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
             .OrderBy(r => r.Year).ThenBy(r => r.Month)
@@ -123,7 +151,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
     {
         var cutoff = DateTime.UtcNow.Date.AddDays(-(days - 1));
 
-        var rows = await _context.Scrobbles
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles
             .Where(s => s.UserId == userId && s.Timestamp >= cutoff)
             .GroupBy(s => new { s.Timestamp.Year, s.Timestamp.Month, s.Timestamp.Day })
             .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() })
@@ -135,7 +164,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => s.Timestamp.Hour)
             .Select(g => new { Hour = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
@@ -149,7 +179,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => s.Timestamp.DayOfWeek)
             .Select(g => new { DayOfWeek = (int)g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
@@ -168,7 +199,8 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
     public async Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        var rows = await _context.Scrobbles.Where(s => s.UserId == userId)
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
             .GroupBy(s => s.Timestamp.Year)
             .Select(g => new { Year = g.Key, Count = g.Count() })
             .OrderBy(r => r.Year)

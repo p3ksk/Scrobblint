@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Shared.Auth;
 using Xunit;
@@ -84,8 +85,9 @@ public class ScrobbleImportServiceTests
 
     private static async Task<Guid> GetImportIdAsync(TestHost host, Guid userId)
     {
-        // Read the active/latest import id straight from the context for test driving.
-        var import = await Task.FromResult(host.Db.ScrobbleImports
+        // Read the active/latest import id for test driving. AsNoTracking so this probe doesn't leave
+        // the import tracked on the write context, which would clash when the worker re-attaches it.
+        var import = await Task.FromResult(host.Db.ScrobbleImports.AsNoTracking()
             .Where(i => i.UserId == userId)
             .OrderByDescending(i => i.CreatedAt)
             .First());
