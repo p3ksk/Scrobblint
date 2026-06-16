@@ -1,0 +1,114 @@
+@page "/stats"
+@attribute [Authorize]
+@inject IStatisticsService Stats
+
+<PageTitle>Statistics — Scrobblint</PageTitle>
+
+<h1>Statistics</h1>
+
+@if (_stats is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat-card"><span class="stat-num">@_stats.TotalScrobbles</span><span class="stat-label">Total scrobbles</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueArtists</span><span class="stat-label">Unique artists</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueTracks</span><span class="stat-label">Unique tracks</span></div>
+    </div>
+
+    <div class="grid-3">
+        <div class="card">
+            <h2>Top artists</h2>
+            <ol class="rank-list">
+                @foreach (var a in _stats.TopArtists)
+                {
+                    <li><span>@a.Artist</span><span class="count">@a.Count</span></li>
+                }
+            </ol>
+        </div>
+        <div class="card">
+            <h2>Top albums</h2>
+            <ol class="rank-list">
+                @foreach (var a in _stats.TopAlbums)
+                {
+                    <li><span>@a.Album <span class="muted">— @a.Artist</span></span><span class="count">@a.Count</span></li>
+                }
+            </ol>
+        </div>
+        <div class="card">
+            <h2>Top tracks</h2>
+            <ol class="rank-list">
+                @foreach (var t in _stats.TopTracks)
+                {
+                    <li><span>@t.Track <span class="muted">— @t.Artist</span></span><span class="count">@t.Count</span></li>
+                }
+            </ol>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Monthly chart</h2>
+        @RenderBars(_stats.MonthlyChart)
+    </div>
+
+    <div class="card">
+        <h2>Daily chart (last 30 days)</h2>
+        @RenderBars(_stats.DailyChart)
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    private StatsResponse? _stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState!).User;
+        var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
+        var result = await Stats.GetStatsAsync(user.GetUsername()!, viewer);
+        if (result.Succeeded) _stats = result.Value;
+    }
+
+    private RenderFragment RenderBars(IReadOnlyList<ChartPoint> points) => builder =>
+    {
+        if (points.Count == 0)
+        {
+            builder.AddMarkupContent(0, "<p class=\"muted\">No data yet.</p>");
+            return;
+        }
+
+        var max = points.Max(p => p.Count);
+        builder.OpenElement(1, "div");
+        builder.AddAttribute(2, "class", "bar-chart");
+        var seq = 3;
+        foreach (var p in points)
+        {
+            var pct = max == 0 ? 0 : (int)Math.Round(p.Count * 100.0 / max);
+            builder.OpenElement(seq++, "div");
+            builder.AddAttribute(seq++, "class", "bar-row");
+
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "bar-label");
+            builder.AddContent(seq++, p.Period);
+            builder.CloseElement();
+
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "bar-track");
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "bar-fill");
+            builder.AddAttribute(seq++, "style", $"width:{pct}%");
+            builder.CloseElement();
+            builder.CloseElement();
+
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "bar-value");
+            builder.AddContent(seq++, p.Count);
+            builder.CloseElement();
+
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+    };
+}

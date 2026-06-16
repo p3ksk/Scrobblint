@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Application\Scrobblint.Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\Scrobblint.Infrastructure.csproj" />
+    <ProjectReference Include="..\Domain\Scrobblint.Domain.csproj" />
+    <ProjectReference Include="..\Shared\Scrobblint.Shared.csproj" />
+    <ProjectReference Include="..\Api\Scrobblint.Api.csproj" />
+    <ProjectReference Include="..\Migrations\Scrobblint.Migrations.Sqlite\Scrobblint.Migrations.Sqlite.csproj" />
+    <ProjectReference Include="..\Migrations\Scrobblint.Migrations.MySql\Scrobblint.Migrations.MySql.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+</Project>

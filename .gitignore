@@ -1,0 +1,27 @@
+## .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+## IDE / editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+## Local databases
+*.db
+*.db-shm
+*.db-wal
+
+## Test results
+TestResults/
+*.trx
+coverage*.xml
+
+## OS
+.DS_Store
+Thumbs.db

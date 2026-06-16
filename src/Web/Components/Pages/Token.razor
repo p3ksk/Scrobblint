@@ -1,0 +1,47 @@
+@page "/token"
+@attribute [Authorize]
+@inject IAuthService Auth
+
+<PageTitle>API token — Scrobblint</PageTitle>
+
+<h1>Your API token</h1>
+
+<div class="card narrow">
+    <p>Use this token to submit scrobbles. Send it in the <code>Authorization</code> header:</p>
+    <pre class="code-block">Authorization: Token @(_token ?? "…")</pre>
+
+    <label>
+        Token
+        <input class="token-field" value="@_token" readonly />
+    </label>
+
+    <form method="post" action="/account/token/regenerate" onsubmit="return confirm('Regenerate your token? The current one will stop working.');">
+        <AntiforgeryToken />
+        <button class="btn btn-danger" type="submit">Regenerate token</button>
+    </form>
+    <p class="muted">Regenerating immediately invalidates the previous token.</p>
+</div>
+
+<div class="card">
+    <h2>Example: submit a scrobble</h2>
+    <pre class="code-block">curl -X POST @(_baseUrl)/api/scrobble \
+  -H "Authorization: Token @(_token ?? "YOUR_TOKEN")" \
+  -H "Content-Type: application/json" \
+  -d '{"artist":"Radiohead","track":"Idioteque","album":"Kid A"}'</pre>
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private string? _token;
+    private string _baseUrl = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _baseUrl = Navigation.BaseUri.TrimEnd('/');
+        var user = (await AuthState!).User;
+        var result = await Auth.GetTokenAsync(user.GetUserId()!.Value);
+        if (result.Succeeded) _token = result.Value!.Token;
+    }
+}

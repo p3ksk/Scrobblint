@@ -1,0 +1,74 @@
+@page "/admin/users"
+@attribute [Authorize(Roles = "Admin")]
+@inject IUserService UserService
+
+<PageTitle>Admin · Users — Scrobblint</PageTitle>
+
+<h1>User management</h1>
+
+<div class="card">
+    <form method="get" action="/admin/users" class="search-form">
+        <input name="search" value="@Search" placeholder="Search username or email…" />
+        <button class="btn" type="submit">Search</button>
+    </form>
+
+    @if (_page is null)
+    {
+        <p>Loading…</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr><th>Username</th><th>Email</th><th>Scrobbles</th><th>Role</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var u in _page.Items)
+                {
+                    <tr>
+                        <td>@u.Username</td>
+                        <td class="muted">@u.Email</td>
+                        <td>@u.ScrobbleCount</td>
+                        <td>@(u.IsAdmin ? "Admin" : "User")</td>
+                        <td>
+                            @if (u.IsDisabled)
+                            {
+                                <span class="badge badge-danger">disabled</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-ok">active</span>
+                            }
+                        </td>
+                        <td><a href="/admin/users/@u.Id">Details</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="pager">
+            @if (_page.HasPrevious)
+            {
+                <a class="btn" href="/admin/users?page=@(_page.Page - 1)&search=@Search">← Previous</a>
+            }
+            <span class="muted">Page @_page.Page of @_page.TotalPages (@_page.TotalCount users)</span>
+            @if (_page.HasNext)
+            {
+                <a class="btn" href="/admin/users?page=@(_page.Page + 1)&search=@Search">Next →</a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+    [SupplyParameterFromQuery] private string? Search { get; set; }
+
+    private PagedResponse<AdminUserListItem>? _page;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await UserService.GetUsersAsync(Page ?? 1, 25, Search);
+        if (result.Succeeded) _page = result.Value;
+    }
+}

@@ -1,0 +1,62 @@
+@page "/settings"
+@attribute [Authorize]
+@inject IUserService Users
+
+<PageTitle>Settings — Scrobblint</PageTitle>
+
+<h1>Settings</h1>
+
+<div class="card narrow">
+    @if (Saved == 1)
+    {
+        <div class="alert alert-success">Settings saved.</div>
+    }
+
+    @if (_settings is null)
+    {
+        <p>Loading…</p>
+    }
+    else
+    {
+        <form method="post" action="/account/settings">
+            <AntiforgeryToken />
+            <label>
+                Profile visibility
+                <select name="visibility">
+                    @foreach (var v in Enum.GetValues<ProfileVisibility>())
+                    {
+                        <option value="@v" selected="@(v == _settings.ProfileVisibility)">@v</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Theme
+                <select name="theme">
+                    @foreach (var t in Enum.GetValues<Theme>())
+                    {
+                        <option value="@t" selected="@(t == _settings.Theme)">@t</option>
+                    }
+                </select>
+            </label>
+            <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+        <p class="muted">
+            A <strong>Private</strong> profile hides your listening history and statistics from
+            everyone except you and administrators.
+        </p>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [SupplyParameterFromQuery] private int? Saved { get; set; }
+
+    private UserSettingsDto? _settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState!).User;
+        var result = await Users.GetSettingsAsync(user.GetUserId()!.Value);
+        _settings = result.Succeeded ? result.Value : new UserSettingsDto(ProfileVisibility.Public, Theme.System);
+    }
+}

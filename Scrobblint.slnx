@@ -1,0 +1,29 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/Scrobblint.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Application/">
+    <Project Path="src/Application/Scrobblint.Application.csproj" />
+  </Folder>
+  <Folder Name="/src/Domain/">
+    <Project Path="src/Domain/Scrobblint.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/Scrobblint.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Migrations/">
+    <Project Path="src/Migrations/Scrobblint.Migrations.MySql/Scrobblint.Migrations.MySql.csproj" />
+    <Project Path="src/Migrations/Scrobblint.Migrations.Sqlite/Scrobblint.Migrations.Sqlite.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/Scrobblint.Shared.csproj" />
+  </Folder>
+  <Folder Name="/src/Web/">
+    <Project Path="src/Web/Scrobblint.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Scrobblint.IntegrationTests/Scrobblint.IntegrationTests.csproj" />
+    <Project Path="tests/Scrobblint.UnitTests/Scrobblint.UnitTests.csproj" />
+  </Folder>
+</Solution>

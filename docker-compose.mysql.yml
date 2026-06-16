@@ -1,0 +1,43 @@
+# Two-container deployment: the app + a MySQL database.
+#   docker compose -f docker-compose.mysql.yml up --build
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: scrobblint
+      MYSQL_USER: scrobblint
+      MYSQL_PASSWORD: scrobblintpass
+    ports:
+      - "3306:3306"
+    volumes:
+      - scrobblint-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scrobblint:latest
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      Database__Provider: MySQL
+      Database__ConnectionString: "Server=db;Port=3306;Database=scrobblint;User=scrobblint;Password=scrobblintpass;"
+      Database__ServerVersion: "8.4.0"
+      Seed__Admin__Enabled: "true"
+      Seed__Admin__Username: "admin"
+      Seed__Admin__Email: "admin@example.com"
+      Seed__Admin__Password: "ChangeMe!123"
+    restart: unless-stopped
+
+volumes:
+  scrobblint-mysql:

@@ -1,0 +1,24 @@
+# Single-container deployment backed by SQLite.
+#   docker compose -f docker-compose.sqlite.yml up --build
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: scrobblint:latest
+    ports:
+      - "8080:8080"
+    environment:
+      Database__Provider: SQLite
+      Database__ConnectionString: "Data Source=/data/scrobblint.db"
+      # Seed an administrator on first run — change the password!
+      Seed__Admin__Enabled: "true"
+      Seed__Admin__Username: "admin"
+      Seed__Admin__Email: "admin@example.com"
+      Seed__Admin__Password: "ChangeMe!123"
+    volumes:
+      - scrobblint-data:/data
+    restart: unless-stopped
+
+volumes:
+  scrobblint-data:

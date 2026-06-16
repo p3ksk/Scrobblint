@@ -1,0 +1,28 @@
+@inject AuthenticationStateProvider AuthProvider
+
+<nav class="navbar">
+    <a class="brand" href="/">🎧 Scrobblint</a>
+    <div class="nav-links">
+        <AuthorizeView>
+            <Authorized>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/recent">Recent</a>
+                <a href="/stats">Statistics</a>
+                <a href="/token">Token</a>
+                <a href="/settings">Settings</a>
+                <AuthorizeView Roles="Admin" Context="admin">
+                    <a href="/admin/users">Admin</a>
+                </AuthorizeView>
+                <span class="nav-user">@context.User.Identity?.Name</span>
+                <form method="post" action="/account/logout" class="inline-form">
+                    <AntiforgeryToken />
+                    <button type="submit" class="btn btn-link">Log out</button>
+                </form>
+            </Authorized>
+            <NotAuthorized>
+                <a href="/login">Login</a>
+                <a href="/register">Register</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</nav>

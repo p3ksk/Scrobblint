@@ -1,0 +1,44 @@
+using Scrobblint.Domain.Entities;
+using Scrobblint.Shared.Stats;
+
+namespace Scrobblint.Application.Abstractions.Persistence;
+
+/// <summary>
+/// Persistence and aggregation operations for <see cref="Scrobble"/> records.
+/// Aggregations are expressed as projections so they translate to SQL and run in the database.
+/// </summary>
+public interface IScrobbleRepository
+{
+    Task AddAsync(Scrobble scrobble, CancellationToken cancellationToken = default);
+
+    Task AddRangeAsync(IEnumerable<Scrobble> scrobbles, CancellationToken cancellationToken = default);
+
+    /// <summary>Most recent listens for a user, newest first, paged in the database.</summary>
+    Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
+        Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    Task<Scrobble?> GetLatestAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<int> CountAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<int> CountDistinctArtistsAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(
+        Guid userId, int limit, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AlbumCount>> GetTopAlbumsAsync(
+        Guid userId, int limit, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(
+        Guid userId, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>Listens grouped by calendar month (UTC), oldest first.</summary>
+    Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(
+        Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Listens grouped by day (UTC) over the trailing <paramref name="days"/> window.</summary>
+    Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(
+        Guid userId, int days, CancellationToken cancellationToken = default);
+}

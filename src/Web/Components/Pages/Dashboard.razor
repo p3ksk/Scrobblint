@@ -1,0 +1,83 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject IStatisticsService Stats
+@inject IScrobbleService Scrobbles
+
+<PageTitle>Dashboard — Scrobblint</PageTitle>
+
+<h1>Dashboard</h1>
+
+@if (_stats is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat-card"><span class="stat-num">@_stats.TotalScrobbles</span><span class="stat-label">Scrobbles</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueArtists</span><span class="stat-label">Artists</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueTracks</span><span class="stat-label">Tracks</span></div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Recent listens</h2>
+            @if (_recent is { Items.Count: > 0 })
+            {
+                <ul class="scrobble-list">
+                    @foreach (var s in _recent.Items)
+                    {
+                        <li>
+                            <span class="track">@s.Track</span>
+                            <span class="artist">@s.Artist</span>
+                            <span class="time">@Format.Ago(s.Timestamp)</span>
+                        </li>
+                    }
+                </ul>
+                <a href="/recent">See all recent →</a>
+            }
+            else
+            {
+                <p class="muted">No scrobbles yet. Submit some via the API — see your <a href="/token">token</a>.</p>
+            }
+        </div>
+
+        <div class="card">
+            <h2>Top artists</h2>
+            @if (_stats.TopArtists.Count > 0)
+            {
+                <ol class="rank-list">
+                    @foreach (var a in _stats.TopArtists)
+                    {
+                        <li><span>@a.Artist</span><span class="count">@a.Count</span></li>
+                    }
+                </ol>
+                <a href="/stats">Full statistics →</a>
+            }
+            else
+            {
+                <p class="muted">Nothing to chart yet.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private StatsResponse? _stats;
+    private PagedResponse<ScrobbleResponse>? _recent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState!).User;
+        var username = user.GetUsername()!;
+        var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
+
+        var stats = await Stats.GetStatsAsync(username, viewer);
+        if (stats.Succeeded) _stats = stats.Value;
+
+        var recent = await Scrobbles.GetRecentAsync(username, 1, 5, viewer);
+        if (recent.Succeeded) _recent = recent.Value;
+    }
+}

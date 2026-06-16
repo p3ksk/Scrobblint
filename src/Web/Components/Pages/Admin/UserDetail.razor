@@ -1,0 +1,74 @@
+@page "/admin/users/{Id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+@inject IUserService Users
+
+<PageTitle>Admin · User — Scrobblint</PageTitle>
+
+@if (_user is null)
+{
+    <div class="card">
+        <h1>User not found</h1>
+        <a class="btn" href="/admin/users">Back to users</a>
+    </div>
+}
+else
+{
+    <p><a href="/admin/users">← All users</a></p>
+    <h1>@_user.Username @if (_user.IsAdmin) { <span class="badge">admin</span> }</h1>
+
+    @if (TokenReset == 1)
+    {
+        <div class="alert alert-success">API token regenerated.</div>
+    }
+
+    <div class="card narrow">
+        <dl class="detail-list">
+            <dt>Email</dt><dd>@_user.Email</dd>
+            <dt>Created</dt><dd>@Format.DateTimeUtc(_user.CreatedAt)</dd>
+            <dt>Scrobbles</dt><dd>@_user.ScrobbleCount</dd>
+            <dt>Profile</dt><dd>@_user.ProfileVisibility</dd>
+            <dt>Status</dt>
+            <dd>@(_user.IsDisabled ? "Disabled" : "Active")</dd>
+        </dl>
+    </div>
+
+    <div class="card narrow">
+        <h2>Actions</h2>
+        <div class="action-row">
+            @if (_user.IsDisabled)
+            {
+                <form method="post" action="/admin/users/@_user.Id/enable">
+                    <AntiforgeryToken />
+                    <button class="btn btn-primary" type="submit">Enable account</button>
+                </form>
+            }
+            else
+            {
+                <form method="post" action="/admin/users/@_user.Id/disable"
+                      onsubmit="return confirm('Disable this user? They will be unable to log in or scrobble.');">
+                    <AntiforgeryToken />
+                    <button class="btn btn-danger" type="submit">Disable account</button>
+                </form>
+            }
+
+            <form method="post" action="/admin/users/@_user.Id/token"
+                  onsubmit="return confirm('Regenerate this user\'s API token?');">
+                <AntiforgeryToken />
+                <button class="btn" type="submit">Regenerate API token</button>
+            </form>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] private int? TokenReset { get; set; }
+
+    private AdminUserDetail? _user;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Users.GetUserDetailAsync(Id);
+        if (result.Succeeded) _user = result.Value;
+    }
+}

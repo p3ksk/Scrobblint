@@ -1,0 +1,85 @@
+@page "/user/{Username}"
+@inject IUserService Users
+@inject IScrobbleService Scrobbles
+
+<PageTitle>@Username — Scrobblint</PageTitle>
+
+@if (_loaded && _profile is null)
+{
+    <div class="card">
+        <h1>@(_forbidden ? "Private profile" : "User not found")</h1>
+        <p class="muted">
+            @(_forbidden
+                ? "This user's profile is private."
+                : $"No user named \"{Username}\" exists.")
+        </p>
+        <a class="btn" href="/">Home</a>
+    </div>
+}
+else if (_profile is not null)
+{
+    <div class="profile-header">
+        <h1>@_profile.Username @if (_profile.IsAdmin) { <span class="badge">admin</span> }</h1>
+        <p class="muted">Member since @Format.DateUtc(_profile.CreatedAt) · @_profile.TotalScrobbles scrobbles</p>
+    </div>
+
+    @if (_profile.LatestScrobble is { } latest)
+    {
+        <div class="card">
+            <h2>Now / last played</h2>
+            <p class="track-line"><span class="track">@latest.Track</span> — <span class="artist">@latest.Artist</span></p>
+            <p class="muted">@Format.Ago(latest.Timestamp)</p>
+        </div>
+    }
+
+    @if (_recent is { Items.Count: > 0 })
+    {
+        <div class="card">
+            <h2>Recent listens</h2>
+            <ul class="scrobble-list">
+                @foreach (var s in _recent.Items)
+                {
+                    <li>
+                        <span class="track">@s.Track</span>
+                        <span class="artist">@s.Artist</span>
+                        <span class="time">@Format.Ago(s.Timestamp)</span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public string Username { get; set; } = "";
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private UserProfileResponse? _profile;
+    private PagedResponse<ScrobbleResponse>? _recent;
+    private bool _loaded;
+    private bool _forbidden;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var viewer = ViewerContext.Anonymous;
+        if (AuthState is not null)
+        {
+            var user = (await AuthState).User;
+            if (user.Identity?.IsAuthenticated == true)
+                viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
+        }
+
+        var profile = await Users.GetProfileAsync(Username, viewer);
+        if (profile.Succeeded)
+        {
+            _profile = profile.Value;
+            var recent = await Scrobbles.GetRecentAsync(Username, 1, 10, viewer);
+            if (recent.Succeeded) _recent = recent.Value;
+        }
+        else
+        {
+            _forbidden = profile.Error == ResultError.Forbidden;
+        }
+        _loaded = true;
+    }
+}

@@ -1,0 +1,34 @@
+@page "/"
+
+<PageTitle>Scrobblint</PageTitle>
+
+<div class="hero">
+    <h1>🎧 Scrobblint</h1>
+    <p class="lead">A lightweight, self-hosted scrobbling service — track what you listen to, your way.</p>
+
+    <AuthorizeView>
+        <Authorized>
+            <p>Welcome back, <strong>@context.User.Identity?.Name</strong>.</p>
+            <div class="actions">
+                <a class="btn btn-primary" href="/dashboard">Go to dashboard</a>
+                <a class="btn" href="/stats">View statistics</a>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <div class="actions">
+                <a class="btn btn-primary" href="/register">Create an account</a>
+                <a class="btn" href="/login">Log in</a>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
+
+<div class="card">
+    <h2>How it works</h2>
+    <ol>
+        <li>Register and grab your personal <strong>API token</strong>.</li>
+        <li>Point any ListenBrainz-style client at <code>/api/scrobble</code> with the header <code>Authorization: Token YOUR_TOKEN</code>.</li>
+        <li>Watch your listening history, charts and top artists build up.</li>
+    </ol>
+    <p>Looking up someone's public profile? Visit <code>/user/&lt;username&gt;</code>.</p>
+</div>
