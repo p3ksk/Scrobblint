@@ -1,5 +1,8 @@
+@inject AuthenticationStateProvider AuthProvider
+@inject IUserService Users
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="@_theme">
 
 <head>
     <meta charset="utf-8" />
@@ -16,3 +19,19 @@
 </body>
 
 </html>
+
+@code {
+    // Drives the colour theme: "system" (follow the OS), "light", or "dark".
+    private string _theme = "system";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        if (state.User.GetUserId() is { } userId)
+        {
+            var settings = await Users.GetSettingsAsync(userId);
+            if (settings.Succeeded)
+                _theme = settings.Value!.Theme.ToString().ToLowerInvariant();
+        }
+    }
+}

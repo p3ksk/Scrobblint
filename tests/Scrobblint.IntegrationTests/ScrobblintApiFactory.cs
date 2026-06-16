@@ -29,6 +29,9 @@ public sealed class ScrobblintApiFactory : WebApplicationFactory<Program>
                 ["Seed:Admin:Username"] = AdminUsername,
                 ["Seed:Admin:Email"] = "admin@example.com",
                 ["Seed:Admin:Password"] = AdminPassword,
+                // Keep tests deterministic regardless of any local Last.fm credentials in appsettings.json.
+                ["Lastfm:ApiKey"] = "",
+                ["Lastfm:ApiSecret"] = "",
             });
         });
     }

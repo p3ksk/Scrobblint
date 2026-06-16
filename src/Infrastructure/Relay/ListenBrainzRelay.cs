@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Domain.Entities;
@@ -15,6 +16,11 @@ namespace Scrobblint.Infrastructure.Relay;
 public sealed class ListenBrainzRelay : IListenBrainzRelay
 {
     public const string DefaultApiRoot = "https://api.listenbrainz.org";
+
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<ListenBrainzRelay> _logger;
@@ -80,9 +86,13 @@ public sealed class ListenBrainzRelay : IListenBrainzRelay
             payload
         };
 
+        // Serialise to a buffered StringContent (not JsonContent): this sends an explicit
+        // Content-Length instead of chunked transfer-encoding. ListenBrainz's front end does not
+        // accept a chunked request body and would otherwise see a zero-length document.
+        var json = JsonSerializer.Serialize(body, SerializerOptions);
         using var request = new HttpRequestMessage(HttpMethod.Post, $"{root}/1/submit-listens")
         {
-            Content = JsonContent.Create(body)
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Token", connection.Token);
 

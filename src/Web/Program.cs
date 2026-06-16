@@ -1,7 +1,10 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Scrobblint.Api;
+using Scrobblint.Api.Authentication;
 using Scrobblint.Application;
+using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Infrastructure;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Web.Authentication;
@@ -29,6 +32,24 @@ builder.Services
         options.Cookie.Name = "scrobblint.auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+
+        // Reject cookies whose user no longer exists or has been disabled (e.g. a stale session
+        // after the database was reset), so a dead session can't slip through and cause errors.
+        options.Events = new CookieAuthenticationEvents
+        {
+            OnValidatePrincipal = async ctx =>
+            {
+                var userId = ctx.Principal?.GetUserId();
+                var users = ctx.HttpContext.RequestServices.GetRequiredService<IUserRepository>();
+                var user = userId is null ? null : await users.GetByIdAsync(userId.Value, ctx.HttpContext.RequestAborted);
+
+                if (user is null || user.IsDisabled)
+                {
+                    ctx.RejectPrincipal();
+                    await ctx.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+                }
+            }
+        };
     })
     .AddTokenAuthentication();
 
