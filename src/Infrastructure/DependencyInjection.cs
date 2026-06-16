@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -35,12 +36,25 @@ public static class DependencyInjection
             DataStorageProviderFactory.Create(sp.GetRequiredService<IOptions<DatabaseOptions>>().Value));
         services.AddSingleton<IDataStorageProvider>(sp => sp.GetRequiredService<IEfDataStorageProvider>());
 
-        services.AddDbContext<ScrobblintDbContext>((sp, options) =>
+        // Register the context through a pooled factory rather than AddDbContext. A single
+        // DI-scoped context is fragile in a Blazor host: it can be shared across overlapping
+        // renders, and a long-lived scope leaves a wide window for one query to be torn down
+        // (e.g. by request cancellation) while another starts — surfacing as "a second operation
+        // was started on this context instance". The factory owns context creation; the scoped
+        // bridge below leases exactly one context per request/operation so the existing repository
+        // + unit-of-work pattern (all repositories and SaveChanges must share one context for a
+        // transactional write) keeps working unchanged. Components that need their own short-lived
+        // context can inject IDbContextFactory<ScrobblintDbContext> directly.
+        services.AddPooledDbContextFactory<ScrobblintDbContext>((sp, options) =>
         {
             var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
             var provider = sp.GetRequiredService<IEfDataStorageProvider>();
             provider.Configure(options, DataStorageProviderFactory.ResolveConnectionString(dbOptions));
         });
+
+        // One pooled context per scope, returned to the pool when the scope is disposed.
+        services.AddScoped<ScrobblintDbContext>(sp =>
+            sp.GetRequiredService<IDbContextFactory<ScrobblintDbContext>>().CreateDbContext());
 
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IUserRepository, UserRepository>();
