@@ -25,7 +25,9 @@ public static class AppConstants
     public const int UsernameMaxLength = 32;
     public const int PasswordMinLength = 8;
     public const int PasswordMaxLength = 128;
-    public const int FieldMaxLength = 512;
+    // 255 keeps (UserId, Artist, Track) / (UserId, Artist, Album) composite indexes within InnoDB's
+    // 3072-byte key limit under utf8mb4, while staying ample for artist/track/album names.
+    public const int FieldMaxLength = 255;
 
     /// <summary>Clamps a requested page size into the allowed range.</summary>
     public static int ClampPageSize(int pageSize) =>

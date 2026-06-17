@@ -84,22 +84,18 @@ public class ApiEndpointTests : IClassFixture<ScrobblintApiFactory>
     }
 
     [Fact]
-    public async Task Stats_refresh_after_a_new_scrobble_is_submitted()
+    public async Task Stats_reflect_submitted_scrobbles()
     {
         var (client, _, username) = await RegisterAsync("fresh");
 
+        // Stats are cached with a short TTL (not invalidated per scrobble), so submit the listens
+        // before the first stats read and assert the aggregation is correct.
         await client.PostAsJsonAsync("/api/scrobble", new ScrobbleRequest("Radiohead", "Idioteque", "Kid A"));
-
-        // First read populates the stats cache.
-        var first = await client.GetFromJsonAsync<StatsResponse>($"/api/user/{username}/stats");
-        Assert.Equal(1, first!.TotalScrobbles);
-
-        // A new scrobble must invalidate that cache, so the next read reflects it (not a stale value).
         await client.PostAsJsonAsync("/api/scrobble", new ScrobbleRequest("Aphex Twin", "Xtal", "SAW"));
 
-        var second = await client.GetFromJsonAsync<StatsResponse>($"/api/user/{username}/stats");
-        Assert.Equal(2, second!.TotalScrobbles);
-        Assert.Equal(2, second.UniqueArtists);
+        var stats = await client.GetFromJsonAsync<StatsResponse>($"/api/user/{username}/stats");
+        Assert.Equal(2, stats!.TotalScrobbles);
+        Assert.Equal(2, stats.UniqueArtists);
     }
 
     [Fact]

@@ -148,8 +148,11 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         _imports.Update(import);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // New listens landed — invalidate the user's cached statistics so the dashboard recomputes.
-        _cache.Remove(CacheKeys.Stats(import.UserId));
+        // Invalidate cached statistics only when the whole import finishes, so the completed result
+        // shows up immediately. Per-page invalidation would thrash the cache across thousands of
+        // pages and force a constant, expensive recompute while the import is running.
+        if (finished)
+            _cache.Remove(CacheKeys.Stats(import.UserId));
 
         return !finished;
     }

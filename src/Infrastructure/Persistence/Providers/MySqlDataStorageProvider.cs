@@ -22,22 +22,20 @@ public sealed class MySqlDataStorageProvider : IEfDataStorageProvider
 
     public void Configure(DbContextOptionsBuilder options, string connectionString)
     {
-        // Disable MySqlConnector's physical-connection pool. When a Blazor request is aborted
-        // (enhanced navigation cancels the in-flight request the moment you click another link),
-        // the running query can be torn down mid-result, leaving its connection half-read. A pooled
-        // connection in that state poisons the NEXT request: leasing it runs a reset that reads the
-        // stale packet and throws "Packet received out-of-order. Expected 1; got 2." Opening a fresh
-        // connection per operation makes a cancelled request fail only itself — it can never corrupt
-        // another. The extra connect cost is negligible for a co-located, low-traffic self-hosted DB.
-        var builder = new MySqlConnector.MySqlConnectionStringBuilder(connectionString) { Pooling = false };
+        // Connection pooling is left ON (MySqlConnector's default) for throughput: a stats-heavy
+        // page runs a dozen queries and re-establishing a connection each time is wasteful. The
+        // "Packet received out-of-order" corruption that once forced pooling off is gone — reads now
+        // use isolated short-lived contexts (IDbContextFactory) with CancellationToken.None and there
+        // is no retrying execution strategy, so a query is never torn down mid-result and abandoned
+        // back into the pool.
 
         // Auto-detect the server version unless one was pinned via Database:ServerVersion. Detection
         // opens a single connection on first use (at start-up, after the DB is healthy).
         var version = _serverVersion is null
-            ? ServerVersion.AutoDetect(builder.ConnectionString)
+            ? ServerVersion.AutoDetect(connectionString)
             : new MySqlServerVersion(_serverVersion);
 
-        options.UseMySql(builder.ConnectionString, version, mysql =>
+        options.UseMySql(connectionString, version, mysql =>
         {
             mysql.MigrationsAssembly(MigrationsAssemblyName);
             // NOTE: deliberately no EnableRetryOnFailure. The retrying execution strategy treats a

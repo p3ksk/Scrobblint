@@ -63,12 +63,12 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Album")
-                        .HasMaxLength(512)
+                        .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Artist")
                         .IsRequired()
-                        .HasMaxLength(512)
+                        .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreatedAt")
@@ -79,7 +79,7 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
 
                     b.Property<string>("Track")
                         .IsRequired()
-                        .HasMaxLength(512)
+                        .HasMaxLength(255)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")
@@ -87,9 +87,11 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "Artist");
-
                     b.HasIndex("UserId", "Timestamp");
+
+                    b.HasIndex("UserId", "Artist", "Album");
+
+                    b.HasIndex("UserId", "Artist", "Track");
 
                     b.ToTable("Scrobbles", (string)null);
                 });

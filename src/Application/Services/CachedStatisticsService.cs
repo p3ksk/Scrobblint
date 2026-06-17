@@ -6,8 +6,11 @@ using Scrobblint.Shared.Stats;
 namespace Scrobblint.Application.Services;
 
 /// <summary>
-/// Decorates <see cref="IStatisticsService"/> with a sliding-expiration memory cache, keyed by the
-/// subject's user id so that scrobble writers can invalidate it the moment new listens arrive.
+/// Decorates <see cref="IStatisticsService"/> with a short absolute-expiration memory cache, keyed
+/// by the subject's user id. Over large histories the aggregation is expensive, so it is recomputed
+/// at most once per window; absolute (not sliding) expiration also stops a stale entry being kept
+/// alive forever by repeated viewing. Writers invalidate the key by id when a result must be fresh
+/// immediately (e.g. an import completing).
 /// </summary>
 public sealed class CachedStatisticsService : IStatisticsService
 {
@@ -32,7 +35,7 @@ public sealed class CachedStatisticsService : IStatisticsService
 
         return (await _cache.GetOrCreateAsync(CacheKeys.Stats(user.Id), async entry =>
         {
-            entry.SlidingExpiration = TimeSpan.FromMinutes(3);
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
             return await _inner.GetStatsAsync(username, viewer, cancellationToken);
         }))!;
     }

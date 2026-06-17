@@ -28,7 +28,12 @@ public sealed class ScrobbleConfiguration : IEntityTypeConfiguration<Scrobble>
 
         // Recent-listens and date-range queries: newest first per user.
         builder.HasIndex(s => new { s.UserId, s.Timestamp });
-        // Grouping aggregates (top artists / tracks).
-        builder.HasIndex(s => new { s.UserId, s.Artist });
+
+        // Covering indexes for the per-user grouping aggregates. The leading (UserId, Artist) prefix
+        // also serves the top-artists / distinct-artists queries, so no separate (UserId, Artist)
+        // index is needed. (UserId, Artist, Track) covers distinct-tracks and top-tracks;
+        // (UserId, Artist, Album) covers distinct-albums and top-albums.
+        builder.HasIndex(s => new { s.UserId, s.Artist, s.Track });
+        builder.HasIndex(s => new { s.UserId, s.Artist, s.Album });
     }
 }

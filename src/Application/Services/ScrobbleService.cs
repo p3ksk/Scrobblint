@@ -99,8 +99,9 @@ public sealed class ScrobbleService : IScrobbleService
         await _scrobbles.AddRangeAsync(entities, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // The user's cached statistics are now stale — drop them so the next read recomputes.
-        _cache.Remove(CacheKeys.Stats(userId));
+        // Cached statistics are intentionally NOT invalidated per scrobble: over a large history the
+        // recompute is expensive, so we let the short cache TTL pick up new listens within a couple
+        // of minutes rather than recomputing on every submission.
 
         // Forward to any external services the user has linked. This is best-effort and runs on a
         // background dispatcher, so it never blocks or fails the local scrobble.
