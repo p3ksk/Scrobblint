@@ -1,6 +1,7 @@
 @page "/recent"
 @attribute [Authorize]
 @inject IScrobbleService Scrobbles
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
 
 <PageTitle>Recent scrobbles — Scrobblint</PageTitle>
 
@@ -19,12 +20,18 @@ else
     <div class="card">
         <table class="table">
             <thead>
-                <tr><th>Track</th><th>Artist</th><th>Album</th><th>When</th></tr>
+                <tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>When</th></tr>
             </thead>
             <tbody>
                 @foreach (var s in _page.Items)
                 {
                     <tr>
+                        <td class="art-cell">
+                            @if (s.Album is not null && _albumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            {
+                                <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                        </td>
                         <td>@s.Track</td>
                         <td>@s.Artist</td>
                         <td class="muted">@(string.IsNullOrEmpty(s.Album) ? "—" : s.Album)</td>
@@ -53,6 +60,7 @@ else
     [SupplyParameterFromQuery] private int? Page { get; set; }
 
     private PagedResponse<ScrobbleResponse>? _page;
+    private Dictionary<Guid, string?> _albumCovers = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -60,5 +68,15 @@ else
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var result = await Scrobbles.GetRecentAsync(user.GetUsername()!, Page ?? 1, 50, viewer);
         if (result.Succeeded) _page = result.Value;
+
+        if (_page?.Items is { Count: > 0 } items)
+        {
+            var tasks = items
+                .Where(s => !string.IsNullOrEmpty(s.Album))
+                .ToDictionary(s => s.Id, s => CoverArt.GetAlbumCoverUrlAsync(s.Artist, s.Album!));
+            await Task.WhenAll(tasks.Values);
+            foreach (var kvp in tasks)
+                _albumCovers[kvp.Key] = kvp.Value.Result;
+        }
     }
 }

@@ -1,6 +1,7 @@
 @page "/user/{Username}"
 @inject IUserService Users
 @inject IScrobbleService Scrobbles
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
 
 <PageTitle>@Username — Scrobblint</PageTitle>
 
@@ -27,19 +28,35 @@ else if (_profile is not null)
     {
         <div class="card">
             <h2>Now playing</h2>
-            <p class="track-line"><span class="track">@np.Track</span> — <span class="artist">@np.Artist</span></p>
-            @if (np.Album is not null)
-            {
-                <p class="muted">Album: @np.Album</p>
-            }
+            <div class="now-playing-card">
+                @if (_nowPlayingImage is not null)
+                {
+                    <img src="@_nowPlayingImage" class="art-thumb art-thumb-lg" alt="" />
+                }
+                <div>
+                    <p class="track-line"><span class="track">@np.Track</span> — <span class="artist">@np.Artist</span></p>
+                    @if (np.Album is not null)
+                    {
+                        <p class="muted">Album: @np.Album</p>
+                    }
+                </div>
+            </div>
         </div>
     }
     else if (_profile.LatestScrobble is { } latest)
     {
         <div class="card">
             <h2>Now / last played</h2>
-            <p class="track-line"><span class="track">@latest.Track</span> — <span class="artist">@latest.Artist</span></p>
-            <p class="muted">@Format.Ago(latest.Timestamp)</p>
+            <div class="now-playing-card">
+                @if (_latestImage is not null)
+                {
+                    <img src="@_latestImage" class="art-thumb art-thumb-lg" alt="" />
+                }
+                <div>
+                    <p class="track-line"><span class="track">@latest.Track</span> — <span class="artist">@latest.Artist</span></p>
+                    <p class="muted">@Format.Ago(latest.Timestamp)</p>
+                </div>
+            </div>
         </div>
     }
 
@@ -51,6 +68,10 @@ else if (_profile is not null)
                 @foreach (var s in _recent.Items)
                 {
                     <li>
+                        @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                        {
+                            <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
                         <span class="track">@s.Track</span>
                         <span class="artist">@s.Artist</span>
                         <span class="time">@Format.Ago(s.Timestamp)</span>
@@ -68,6 +89,9 @@ else if (_profile is not null)
     private UserProfileResponse? _profile;
     private PagedResponse<ScrobbleResponse>? _recent;
     private NowPlayingResponse? _nowPlaying;
+    private string? _nowPlayingImage;
+    private string? _latestImage;
+    private Dictionary<Guid, string?> _recentAlbumCovers = new();
     private bool _loaded;
     private bool _forbidden;
 
@@ -94,5 +118,39 @@ else if (_profile is not null)
             _forbidden = profile.Error == ResultError.Forbidden;
         }
         _loaded = true;
+
+        // Resolve artwork in parallel.
+        Task<string?>? nowPlayingTask = null;
+        Task<string?>? latestTask = null;
+        Dictionary<Guid, Task<string?>>? albumTasks = null;
+
+        if (_nowPlaying is not null && !string.IsNullOrEmpty(_nowPlaying.Album))
+            nowPlayingTask = CoverArt.GetAlbumCoverUrlAsync(_nowPlaying.Artist, _nowPlaying.Album);
+        else if (_profile?.LatestScrobble is { } latest && !string.IsNullOrEmpty(latest.Album))
+            latestTask = CoverArt.GetAlbumCoverUrlAsync(latest.Artist, latest.Album);
+
+        if (_recent?.Items is { Count: > 0 } recentItems)
+        {
+            albumTasks = recentItems
+                .Where(s => !string.IsNullOrEmpty(s.Album))
+                .ToDictionary(s => s.Id, s => CoverArt.GetAlbumCoverUrlAsync(s.Artist, s.Album!));
+        }
+
+        var tasks = new List<Task>();
+        if (nowPlayingTask is not null) tasks.Add(nowPlayingTask);
+        if (latestTask is not null) tasks.Add(latestTask);
+        if (albumTasks is not null) tasks.AddRange(albumTasks.Values);
+
+        if (tasks.Count > 0)
+            await Task.WhenAll(tasks);
+
+        _nowPlayingImage = nowPlayingTask?.Result;
+        _latestImage = latestTask?.Result;
+
+        if (albumTasks is not null)
+        {
+            foreach (var kvp in albumTasks)
+                _recentAlbumCovers[kvp.Key] = kvp.Value.Result;
+        }
     }
 }

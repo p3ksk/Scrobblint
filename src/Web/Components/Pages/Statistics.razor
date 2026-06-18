@@ -1,6 +1,7 @@
 @page "/stats"
 @attribute [Authorize]
 @inject IStatisticsService Stats
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
 
 <PageTitle>Statistics — Scrobblint</PageTitle>
 
@@ -25,7 +26,13 @@ else
             <ol class="rank-list">
                 @foreach (var a in _stats.TopArtists)
                 {
-                    <li><span>@a.Artist</span><span class="count">@a.Count</span></li>
+                    <li>
+                        @if (_artistImages.TryGetValue(a.Artist, out var imgUrl) && imgUrl is not null)
+                        {
+                            <img src="@imgUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
+                        <span>@a.Artist</span><span class="count">@a.Count</span>
+                    </li>
                 }
             </ol>
         </div>
@@ -34,7 +41,13 @@ else
             <ol class="rank-list">
                 @foreach (var a in _stats.TopAlbums)
                 {
-                    <li><span>@a.Album <span class="muted">— @a.Artist</span></span><span class="count">@a.Count</span></li>
+                    <li>
+                        @if (_albumImages.TryGetValue(a.Album, out var coverUrl) && coverUrl is not null)
+                        {
+                            <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
+                        <span>@a.Album <span class="muted">— @a.Artist</span></span><span class="count">@a.Count</span>
+                    </li>
                 }
             </ol>
         </div>
@@ -111,6 +124,8 @@ else
     [SupplyParameterFromQuery(Name = "tab")] private string? _tab { get; set; }
     [SupplyParameterFromQuery(Name = "monthlyPage")] private int _monthlyPage { get; set; }
     private StatsResponse? _stats;
+    private Dictionary<string, string?> _artistImages = new();
+    private Dictionary<string, string?> _albumImages = new();
     private const int MonthlyPageSize = 12;
 
     private int MonthlyTotalPages => _stats is null ? 0 : (int)Math.Ceiling(_stats.MonthlyChart.Count / (double)MonthlyPageSize);
@@ -135,6 +150,36 @@ else
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var result = await Stats.GetStatsAsync(user.GetUsername()!, viewer);
         if (result.Succeeded) _stats = result.Value;
+
+        if (_stats is null) return;
+
+        // Resolve artwork in parallel.
+        Dictionary<string, Task<string?>>? artistTasks = null;
+        if (_stats.TopArtists is { Count: > 0 } topArtists)
+            artistTasks = topArtists.ToDictionary(a => a.Artist, a => CoverArt.GetArtistImageUrlAsync(a.Artist));
+
+        Dictionary<string, Task<string?>>? albumTasks = null;
+        if (_stats.TopAlbums is { Count: > 0 } topAlbums)
+            albumTasks = topAlbums.ToDictionary(a => a.Album, a => CoverArt.GetAlbumCoverUrlAsync(a.Artist, a.Album));
+
+        var tasks = new List<Task>();
+        if (artistTasks is not null) tasks.AddRange(artistTasks.Values);
+        if (albumTasks is not null) tasks.AddRange(albumTasks.Values);
+
+        if (tasks.Count > 0)
+            await Task.WhenAll(tasks);
+
+        if (artistTasks is not null)
+        {
+            foreach (var kvp in artistTasks)
+                _artistImages[kvp.Key] = kvp.Value.Result;
+        }
+
+        if (albumTasks is not null)
+        {
+            foreach (var kvp in albumTasks)
+                _albumImages[kvp.Key] = kvp.Value.Result;
+        }
     }
 
     private RenderFragment RenderBars(IReadOnlyList<ChartPoint> points) => builder =>

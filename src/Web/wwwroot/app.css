@@ -367,3 +367,19 @@ form input:focus, form select:focus {
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
 }
+
+/* -------- artwork thumbnails -------- */
+.art-thumb {
+    border: var(--bd-thin);
+    box-shadow: var(--shadow-sm);
+    object-fit: cover;
+    flex: none;
+    background: var(--panel);
+}
+.art-thumb-sm { width: 42px; height: 42px; }
+.art-thumb-md { width: 64px; height: 64px; }
+.art-thumb-lg { width: 96px; height: 96px; }
+
+.now-playing-card { display: flex; align-items: center; gap: 1.25rem; }
+
+.art-cell { width: 42px; padding: 0.2rem 0.15rem 0.2rem 0.7rem; vertical-align: middle; }

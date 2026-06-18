@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
+using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Abstractions.Security;
 using Scrobblint.Infrastructure.Configuration;
+using Scrobblint.Infrastructure.CoverArt;
 using Scrobblint.Infrastructure.Import;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Providers;
@@ -91,6 +93,15 @@ public static class DependencyInjection
 
         services.AddSingleton<IScrobbleRelayQueue, ScrobbleRelayQueue>();
         services.AddHostedService<ScrobbleRelayDispatcher>();
+
+        // --- Cover art (Deezer API, free — no key required) ---
+        services.AddHttpClient(DeezerCoverArtProvider.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri("https://api.deezer.com/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("Scrobblint/1.0 (+https://github.com/scrobblint)");
+        });
+        services.AddSingleton<ICoverArtProvider, DeezerCoverArtProvider>();
 
         // --- History import (Last.fm) ---
         services.AddSingleton<IScrobbleImportQueue, ScrobbleImportQueue>();

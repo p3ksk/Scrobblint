@@ -11,4 +11,11 @@ public static class CacheKeys
     /// invalidate it from the user id it already holds, without a username lookup.
     /// </summary>
     public static string Stats(Guid userId) => $"stats:{userId}";
+
+    /// <summary>
+    /// Cached artwork URL (artist image or album cover). A successful lookup is cached for
+    /// 24 h; null misses are not cached so the provider will retry on the next request.
+    /// </summary>
+    public static string Artwork(string type, string artist, string? album = null)
+        => album is null ? $"artwork:{type}:{artist}" : $"artwork:{type}:{artist}:{album}";
 }

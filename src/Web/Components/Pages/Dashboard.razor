@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject IStatisticsService Stats
 @inject IScrobbleService Scrobbles
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
 
 <PageTitle>Dashboard — Scrobblint</PageTitle>
 
@@ -23,11 +24,19 @@ else
     {
         <div class="card">
             <h2>Now playing</h2>
-            <p class="track-line"><span class="track">@_nowPlaying.Track</span> — <span class="artist">@_nowPlaying.Artist</span></p>
-            @if (_nowPlaying.Album is not null)
-            {
-                <p class="muted">Album: @_nowPlaying.Album</p>
-            }
+            <div class="now-playing-card">
+                @if (_nowPlayingImage is not null)
+                {
+                    <img src="@_nowPlayingImage" class="art-thumb art-thumb-lg" alt="" />
+                }
+                <div>
+                    <p class="track-line"><span class="track">@_nowPlaying.Track</span> — <span class="artist">@_nowPlaying.Artist</span></p>
+                    @if (_nowPlaying.Album is not null)
+                    {
+                        <p class="muted">Album: @_nowPlaying.Album</p>
+                    }
+                </div>
+            </div>
         </div>
     }
 
@@ -40,6 +49,10 @@ else
                     @foreach (var s in _recent.Items)
                     {
                         <li>
+                            @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            {
+                                <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
                             <span class="track">@s.Track</span>
                             <span class="artist">@s.Artist</span>
                             <span class="time">@Format.Ago(s.Timestamp)</span>
@@ -61,7 +74,13 @@ else
                 <ol class="rank-list">
                     @foreach (var a in _stats.TopArtists)
                     {
-                        <li><span>@a.Artist</span><span class="count">@a.Count</span></li>
+                        <li>
+                            @if (_artistImages.TryGetValue(a.Artist, out var imgUrl) && imgUrl is not null)
+                            {
+                                <img src="@imgUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            <span>@a.Artist</span><span class="count">@a.Count</span>
+                        </li>
                     }
                 </ol>
                 <a href="/stats">Full statistics →</a>
@@ -80,6 +99,9 @@ else
     private StatsResponse? _stats;
     private PagedResponse<ScrobbleResponse>? _recent;
     private NowPlayingResponse? _nowPlaying;
+    private string? _nowPlayingImage;
+    private Dictionary<string, string?> _artistImages = new();
+    private Dictionary<Guid, string?> _recentAlbumCovers = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -94,5 +116,43 @@ else
         if (recent.Succeeded) _recent = recent.Value;
 
         _nowPlaying = Scrobbles.GetNowPlaying(user.GetUserId()!.Value);
+
+        // Resolve artwork in parallel (all cached after the first hit).
+        Task<string?>? nowPlayingTask = null;
+        if (_nowPlaying is not null && !string.IsNullOrEmpty(_nowPlaying.Album))
+            nowPlayingTask = CoverArt.GetAlbumCoverUrlAsync(_nowPlaying.Artist, _nowPlaying.Album);
+
+        Dictionary<string, Task<string?>>? artistTasks = null;
+        if (_stats?.TopArtists is { Count: > 0 } topArtists)
+            artistTasks = topArtists.ToDictionary(a => a.Artist, a => CoverArt.GetArtistImageUrlAsync(a.Artist));
+
+        Dictionary<Guid, Task<string?>>? albumTasks = null;
+        if (_recent?.Items is { Count: > 0 } recentItems)
+        {
+            albumTasks = recentItems
+                .Where(s => !string.IsNullOrEmpty(s.Album))
+                .ToDictionary(s => s.Id, s => CoverArt.GetAlbumCoverUrlAsync(s.Artist, s.Album!));
+        }
+
+        // Collect all tasks and await once.
+        var allTasks = new List<Task>();
+        if (nowPlayingTask is not null) allTasks.Add(nowPlayingTask);
+        if (artistTasks is not null) allTasks.AddRange(artistTasks.Values);
+        if (albumTasks is not null) allTasks.AddRange(albumTasks.Values);
+        await Task.WhenAll(allTasks);
+
+        _nowPlayingImage = nowPlayingTask?.Result;
+
+        if (artistTasks is not null)
+        {
+            foreach (var kvp in artistTasks)
+                _artistImages[kvp.Key] = kvp.Value.Result;
+        }
+
+        if (albumTasks is not null)
+        {
+            foreach (var kvp in albumTasks)
+                _recentAlbumCovers[kvp.Key] = kvp.Value.Result;
+        }
     }
 }
