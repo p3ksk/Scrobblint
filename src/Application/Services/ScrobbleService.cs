@@ -291,4 +291,42 @@ public sealed class ScrobbleService : IScrobbleService
         await _unitOfWork.SaveChangesAsync(ct);
         return Result.Ok();
     }
+
+    // ── Track detail ────────────────────────────────────────────────────────
+
+    public async Task<Result<TrackDetail>> GetTrackDetailAsync(string username, string artist, string track, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<TrackDetail>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<TrackDetail>.Forbidden("This profile is private.");
+
+        var totalPlays = await _scrobbles.CountByTrackAsync(user.Id, artist, track, ct);
+        var (first, last) = await _scrobbles.GetPlayRangeByTrackAsync(user.Id, artist, track, ct);
+
+        return Result<TrackDetail>.Ok(new TrackDetail(artist, track, totalPlays, first, last));
+    }
+
+    public async Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByTrackAsync(
+        string username, string artist, string track, int page, int pageSize, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<PagedResponse<ScrobbleResponse>>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<PagedResponse<ScrobbleResponse>>.Forbidden("This profile is private.");
+
+        page = AppConstants.ClampPage(page);
+        pageSize = AppConstants.ClampPageSize(pageSize);
+
+        var (items, total) = await _scrobbles.GetRecentByTrackAsync(user.Id, artist, track, page, pageSize, ct);
+        var mapped = items.Select(s => s.ToResponse()).ToList();
+        return Result<PagedResponse<ScrobbleResponse>>.Ok(
+            new PagedResponse<ScrobbleResponse>(mapped, page, pageSize, total));
+    }
 }

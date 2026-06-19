@@ -226,6 +226,12 @@ public sealed class ScrobbleRepository : IScrobbleRepository
             .CountAsync(ct);
     }
 
+    public async Task<int> CountAllAsync(CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking().CountAsync(ct);
+    }
+
     public async Task<int> CountByAlbumAsync(Guid userId, string artist, string album, CancellationToken ct)
     {
         await using var db = _factory.CreateDbContext();
@@ -330,5 +336,45 @@ public sealed class ScrobbleRepository : IScrobbleRepository
 
         _context.Scrobbles.Remove(scrobble);
         return true;
+    }
+
+    // ── Track drill-down ──────────────────────────────────────────────────
+
+    public async Task<int> CountByTrackAsync(Guid userId, string artist, string track, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Track == track)
+            .CountAsync(ct);
+    }
+
+    public async Task<(DateTime? First, DateTime? Last)> GetPlayRangeByTrackAsync(Guid userId, string artist, string track, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var query = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Track == track)
+            .Select(s => s.Timestamp);
+
+        var first = await query.OrderBy(t => t).FirstOrDefaultAsync(ct);
+        var last = await query.OrderByDescending(t => t).FirstOrDefaultAsync(ct);
+        return (first == default ? null : first, last == default ? null : last);
+    }
+
+    public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByTrackAsync(
+        Guid userId, string artist, string track, int page, int pageSize, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var baseQuery = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Track == track);
+
+        var total = await baseQuery.CountAsync(ct);
+        var items = await baseQuery
+            .OrderByDescending(s => s.Timestamp)
+            .ThenByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
     }
 }

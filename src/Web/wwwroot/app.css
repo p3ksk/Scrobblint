@@ -412,3 +412,9 @@ a.artist { color: var(--muted-ink); font-weight: 600; text-decoration: none; }
 a.artist:hover { color: var(--blue); text-decoration: underline; }
 a.muted { color: var(--muted-ink); text-decoration: none; }
 a.muted:hover { color: var(--blue); text-decoration: underline; }
+
+/* Track links in rank lists and scrobble lists */
+a.track { font-weight: 800; color: var(--ink); text-decoration: none; }
+a.track:hover { text-decoration: underline; text-underline-offset: 3px; }
+.rank-link-inline { font-weight: inherit; text-decoration: none; color: inherit; }
+.rank-link-inline:hover { text-decoration: underline; text-underline-offset: 3px; }

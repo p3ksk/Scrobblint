@@ -8,4 +8,7 @@ public interface IScrobbleImportQueue
     bool Enqueue(Guid importId);
 
     IAsyncEnumerable<Guid> DequeueAllAsync(CancellationToken cancellationToken);
+
+    /// <summary>Approximate number of import jobs currently queued.</summary>
+    int Count { get; }
 }

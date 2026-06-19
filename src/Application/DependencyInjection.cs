@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<UserService>();
         services.AddScoped<ExternalConnectionService>();
         services.AddScoped<ScrobbleImportService>();
+        services.AddScoped<AdminService>();
 
         services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
         services.AddScoped<IScrobbleService>(sp => sp.GetRequiredService<ScrobbleService>());
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IExternalConnectionService>(sp => sp.GetRequiredService<ExternalConnectionService>());
         services.AddScoped<IScrobbleImportService>(sp => sp.GetRequiredService<ScrobbleImportService>());
+        services.AddScoped<IAdminService>(sp => sp.GetRequiredService<AdminService>());
         return services;
     }
 }

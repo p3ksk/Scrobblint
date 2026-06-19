@@ -113,4 +113,10 @@ public sealed class UserRepository : IUserRepository
 
         return (items, total);
     }
+
+    public async Task<int> CountAllAsync(CancellationToken cancellationToken)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Users.AsNoTracking().CountAsync(cancellationToken);
+    }
 }

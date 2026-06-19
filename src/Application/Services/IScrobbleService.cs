@@ -49,4 +49,10 @@ public interface IScrobbleService
 
     /// <summary>Deletes a scrobble owned by the specified user.</summary>
     Task<Result> DeleteAsync(Guid userId, Guid scrobbleId, CancellationToken cancellationToken = default);
+
+    /// <summary>Detail data for a track: plays, first/last heard.</summary>
+    Task<Result<TrackDetail>> GetTrackDetailAsync(string username, string artist, string track, ViewerContext viewer, CancellationToken cancellationToken = default);
+
+    /// <summary>Recent scrobbles filtered to a specific track, respecting profile visibility.</summary>
+    Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByTrackAsync(string username, string artist, string track, int page, int pageSize, ViewerContext viewer, CancellationToken cancellationToken = default);
 }

@@ -37,7 +37,7 @@ else
                                 <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
                             }
                         </td>
-                        <td>@s.Track</td>
+                        <td><a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)">@s.Track</a></td>
                         <td><a href="/artist/@Uri.EscapeDataString(s.Artist)">@s.Artist</a></td>
                         <td class="muted">
                             @if (!string.IsNullOrEmpty(s.Album))

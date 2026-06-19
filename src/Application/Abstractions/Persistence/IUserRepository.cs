@@ -35,4 +35,7 @@ public interface IUserRepository
     /// </summary>
     Task<(IReadOnlyList<AdminUserListItem> Items, int TotalCount)> GetAdminListAsync(
         int page, int pageSize, string? search, CancellationToken cancellationToken = default);
+
+    /// <summary>Total number of registered users.</summary>
+    Task<int> CountAllAsync(CancellationToken cancellationToken = default);
 }

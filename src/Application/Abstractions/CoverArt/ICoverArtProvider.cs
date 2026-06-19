@@ -12,4 +12,13 @@ public interface ICoverArtProvider
 
     /// <summary>Returns a data URI for an album's cover art, or null if not found.</summary>
     Task<string?> GetAlbumCoverUrlAsync(string artist, string album, CancellationToken ct = default);
+
+    /// <summary>Current number of cached artwork entries.</summary>
+    int CacheEntryCount { get; }
+
+    /// <summary>Total cache hits since process start.</summary>
+    long CacheHits { get; }
+
+    /// <summary>Total cache misses since process start.</summary>
+    long CacheMisses { get; }
 }

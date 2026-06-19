@@ -22,3 +22,13 @@ public sealed record AlbumDetail(
     DateTime? FirstPlayed,
     DateTime? LastPlayed,
     IReadOnlyList<TrackCount> Tracks);
+
+/// <summary>
+/// Detail data for a single track: total plays and first/last heard.
+/// </summary>
+public sealed record TrackDetail(
+    string Artist,
+    string Track,
+    int TotalPlays,
+    DateTime? FirstPlayed,
+    DateTime? LastPlayed);

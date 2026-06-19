@@ -14,4 +14,7 @@ public interface IScrobbleRelayQueue
 
     /// <summary>Streams queued jobs until cancellation.</summary>
     IAsyncEnumerable<ScrobbleRelayJob> DequeueAllAsync(CancellationToken cancellationToken);
+
+    /// <summary>Approximate number of jobs currently queued.</summary>
+    int Count { get; }
 }

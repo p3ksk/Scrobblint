@@ -79,7 +79,7 @@ else
             <ol class="rank-list">
                 @foreach (var t in _stats.TopTracks)
                 {
-                    <li><span>@t.Track <span class="muted">— @t.Artist</span></span><span class="count">@t.Count</span></li>
+                    <li><span><a href="/track/@Uri.EscapeDataString(t.Artist)/@Uri.EscapeDataString(t.Track)" class="rank-link-inline">@t.Track</a> <span class="muted">— @t.Artist</span></span><span class="count">@t.Count</span></li>
                 }
             </ol>
         </div>

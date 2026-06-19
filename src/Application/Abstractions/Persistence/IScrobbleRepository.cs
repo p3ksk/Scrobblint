@@ -91,4 +91,16 @@ public interface IScrobbleRepository
 
     /// <summary>Deletes a single scrobble by id if it belongs to the specified user. Returns true if deleted.</summary>
     Task<bool> DeleteAsync(Guid scrobbleId, Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Total scrobble count across all users.</summary>
+    Task<int> CountAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Total scrobble count for a specific track (artist-scoped).</summary>
+    Task<int> CountByTrackAsync(Guid userId, string artist, string track, CancellationToken cancellationToken = default);
+
+    /// <summary>Earliest and most recent listen timestamps for a track.</summary>
+    Task<(DateTime? First, DateTime? Last)> GetPlayRangeByTrackAsync(Guid userId, string artist, string track, CancellationToken cancellationToken = default);
+
+    /// <summary>Paginated recent scrobbles for a specific track, newest first.</summary>
+    Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByTrackAsync(Guid userId, string artist, string track, int page, int pageSize, CancellationToken cancellationToken = default);
 }

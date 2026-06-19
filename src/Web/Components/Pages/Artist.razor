@@ -41,7 +41,7 @@ else
                 <ol class="rank-list">
                     @foreach (var t in _detail.Tracks)
                     {
-                        <li><span>@t.Track</span><span class="count">@t.Count</span></li>
+                        <li><a href="/track/@Uri.EscapeDataString(t.Artist)/@Uri.EscapeDataString(t.Track)" class="rank-link">@t.Track</a><span class="count">@t.Count</span></li>
                     }
                 </ol>
             }
@@ -63,7 +63,7 @@ else
                             {
                                 <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
                             }
-                            <span class="track">@s.Track</span>
+                            <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
                             @if (s.Album is not null)
                             {
                                 <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>

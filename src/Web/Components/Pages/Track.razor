@@ -1,0 +1,106 @@
+@page "/track/{ArtistName}/{TrackName}"
+@attribute [Authorize]
+@inject IScrobbleService Scrobbles
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
+
+<PageTitle>@TrackName — @ArtistName — Scrobblint</PageTitle>
+
+<h1>@TrackName</h1>
+<p class="muted">by <a href="/artist/@Uri.EscapeDataString(ArtistName)">@ArtistName</a></p>
+
+@if (_detail is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="card">
+        <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
+        @if (_detail.FirstPlayed is not null)
+        {
+            <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value))</p>
+        }
+        @if (_detail.LastPlayed is not null)
+        {
+            <p class="muted">Last heard @Format.Ago(Mappers.ToUnix(_detail.LastPlayed.Value))</p>
+        }
+    </div>
+
+    <div class="card">
+        <h2>Recent listens</h2>
+        @if (_recentPage is { Items.Count: > 0 })
+        {
+            <ul class="scrobble-list">
+                @foreach (var s in _recentPage.Items)
+                {
+                    <li>
+                        @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                        {
+                            <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
+                        <span class="track">@s.Track</span>
+                        @if (s.Album is not null)
+                        {
+                            <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>
+                        }
+                        <span class="time">@Format.Ago(s.Timestamp)</span>
+                    </li>
+                }
+            </ul>
+            <div class="pager">
+                @if (_page > 1)
+                {
+                    <a class="btn" href="/track/@Uri.EscapeDataString(ArtistName)/@Uri.EscapeDataString(TrackName)?page=@(_page - 1)">← Previous</a>
+                }
+                <span class="muted">Page @_page</span>
+                @if (_recentPage.HasNext)
+                {
+                    <a class="btn" href="/track/@Uri.EscapeDataString(ArtistName)/@Uri.EscapeDataString(TrackName)?page=@(_page + 1)">Next →</a>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="muted">No scrobbles.</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string ArtistName { get; set; } = "";
+    [Parameter] public string TrackName { get; set; } = "";
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private TrackDetail? _detail;
+    private PagedResponse<ScrobbleResponse>? _recentPage;
+    private Dictionary<Guid, string?> _recentAlbumCovers = new();
+    private int _page;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _page = Math.Max(1, Page ?? 1);
+        var user = (await AuthState!).User;
+        var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
+        var username = user.GetUsername()!;
+
+        var detail = await Scrobbles.GetTrackDetailAsync(username, ArtistName, TrackName, viewer);
+        if (!detail.Succeeded) return;
+        _detail = detail.Value;
+
+        var recentResult = await Scrobbles.GetRecentByTrackAsync(username, ArtistName, TrackName, _page, 10, viewer);
+        if (recentResult.Succeeded)
+            _recentPage = recentResult.Value;
+
+        if (_recentPage?.Items is { Count: > 0 } items)
+        {
+            var albumTasks = items
+                .Where(s => !string.IsNullOrEmpty(s.Album))
+                .ToDictionary(s => s.Id, s => CoverArt.GetAlbumCoverUrlAsync(s.Artist, s.Album!));
+            await Task.WhenAll(albumTasks.Values);
+            foreach (var kvp in albumTasks)
+                _recentAlbumCovers[kvp.Key] = kvp.Value.Result;
+        }
+    }
+}

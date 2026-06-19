@@ -121,6 +121,8 @@ public sealed class RecordingRelayQueue : IScrobbleRelayQueue
             yield return job;
         await Task.CompletedTask;
     }
+
+    public int Count => Jobs.Count;
 }
 
 public sealed class NoopImportQueue : IScrobbleImportQueue
@@ -133,6 +135,8 @@ public sealed class NoopImportQueue : IScrobbleImportQueue
         await Task.CompletedTask;
         yield break;
     }
+
+    public int Count => 0;
 }
 
 /// <summary>Fake Last.fm relay returning canned history pages keyed by page number.</summary>

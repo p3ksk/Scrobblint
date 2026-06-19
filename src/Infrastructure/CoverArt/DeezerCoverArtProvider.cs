@@ -27,6 +27,11 @@ public sealed class DeezerCoverArtProvider : ICoverArtProvider
         _logger = logger;
     }
 
+    /// <summary>Current number of cached artwork entries.</summary>
+    public int CacheEntryCount => _cache.EntryCount;
+    public long CacheHits => _cache.Hits;
+    public long CacheMisses => _cache.Misses;
+
     private HttpClient Client() => _httpClientFactory.CreateClient(HttpClientName);
 
     public Task<string?> GetArtistImageUrlAsync(string artist, CancellationToken ct = default)
@@ -138,13 +143,24 @@ public sealed class DeezerCoverArtProvider : ICoverArtProvider
         private readonly ConcurrentDictionary<string, Task<string?>> _entries = new();
         private readonly ConcurrentQueue<string> _order = new();
         private readonly object _evictLock = new();
+        private long _hits;
+        private long _misses;
 
         public FifoCache(int maxEntries) => _maxEntries = maxEntries;
+
+        public int EntryCount => _entries.Count;
+        public long Hits => Interlocked.Read(ref _hits);
+        public long Misses => Interlocked.Read(ref _misses);
 
         public Task<string?> GetOrAddAsync(string key, Func<Task<string?>> factory)
         {
             if (_entries.TryGetValue(key, out var existing))
+            {
+                Interlocked.Increment(ref _hits);
                 return existing;
+            }
+
+            Interlocked.Increment(ref _misses);
 
             var newTask = CaptureAsync(key, factory);
             var winner = _entries.GetOrAdd(key, newTask);

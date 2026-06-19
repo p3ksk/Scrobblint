@@ -12,8 +12,27 @@ public sealed class ScrobbleImportQueue : IScrobbleImportQueue
     private readonly Channel<Guid> _channel =
         Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions { SingleReader = true, SingleWriter = false });
 
-    public bool Enqueue(Guid importId) => _channel.Writer.TryWrite(importId);
+    private int _count;
 
-    public IAsyncEnumerable<Guid> DequeueAllAsync(CancellationToken cancellationToken) =>
-        _channel.Reader.ReadAllAsync(cancellationToken);
+    public bool Enqueue(Guid importId)
+    {
+        if (_channel.Writer.TryWrite(importId))
+        {
+            Interlocked.Increment(ref _count);
+            return true;
+        }
+        return false;
+    }
+
+    public async IAsyncEnumerable<Guid> DequeueAllAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var id in _channel.Reader.ReadAllAsync(cancellationToken))
+        {
+            Interlocked.Decrement(ref _count);
+            yield return id;
+        }
+    }
+
+    public int Count => _count;
 }

@@ -16,8 +16,27 @@ public sealed class ScrobbleRelayQueue : IScrobbleRelayQueue
             SingleWriter = false
         });
 
-    public bool Enqueue(ScrobbleRelayJob job) => _channel.Writer.TryWrite(job);
+    private int _count;
 
-    public IAsyncEnumerable<ScrobbleRelayJob> DequeueAllAsync(CancellationToken cancellationToken) =>
-        _channel.Reader.ReadAllAsync(cancellationToken);
+    public bool Enqueue(ScrobbleRelayJob job)
+    {
+        if (_channel.Writer.TryWrite(job))
+        {
+            Interlocked.Increment(ref _count);
+            return true;
+        }
+        return false;
+    }
+
+    public async IAsyncEnumerable<ScrobbleRelayJob> DequeueAllAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        await foreach (var job in _channel.Reader.ReadAllAsync(cancellationToken))
+        {
+            Interlocked.Decrement(ref _count);
+            yield return job;
+        }
+    }
+
+    public int Count => _count;
 }
