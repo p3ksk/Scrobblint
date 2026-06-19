@@ -46,7 +46,7 @@ public sealed class UserService : IUserService
         if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
             return Result<UserProfileResponse>.Forbidden("This profile is private.");
 
-        var total = await _scrobbles.CountAsync(user.Id, cancellationToken);
+        var total = await _scrobbles.CountAsync(user.Id, cancellationToken: cancellationToken);
         var latest = await _scrobbles.GetLatestAsync(user.Id, cancellationToken);
 
         return Result<UserProfileResponse>.Ok(new UserProfileResponse(
@@ -109,7 +109,7 @@ public sealed class UserService : IUserService
             return Result<AdminUserDetail>.NotFound("User not found.");
 
         var settings = await _settings.GetByUserIdAsync(user.Id, cancellationToken);
-        var count = await _scrobbles.CountAsync(user.Id, cancellationToken);
+        var count = await _scrobbles.CountAsync(user.Id, cancellationToken: cancellationToken);
 
         return Result<AdminUserDetail>.Ok(new AdminUserDetail(
             user.Id, user.Username, user.Email, Mappers.ToUnix(user.CreatedAt),

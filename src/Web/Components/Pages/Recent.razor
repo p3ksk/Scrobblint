@@ -34,7 +34,7 @@ else
                         </td>
                         <td>@s.Track</td>
                         <td>@s.Artist</td>
-                        <td class="muted">@(string.IsNullOrEmpty(s.Album) ? "—" : s.Album)</td>
+                        <td class="muted">@(s.Album ?? "")</td>
                         <td class="muted" title="@Format.DateTimeUtc(s.Timestamp)">@Format.Ago(s.Timestamp)</td>
                     </tr>
                 }

@@ -40,7 +40,7 @@ public static class UserEndpoints
         group.MapGet("/stats", async (
             string username, ClaimsPrincipal user, IStatisticsService stats, CancellationToken ct) =>
         {
-            var result = await stats.GetStatsAsync(username, ViewerContextFactory.From(user), ct);
+            var result = await stats.GetStatsAsync(username, ViewerContextFactory.From(user), cancellationToken: ct);
             return result.ToHttpResult();
         })
         .AllowAnonymous()

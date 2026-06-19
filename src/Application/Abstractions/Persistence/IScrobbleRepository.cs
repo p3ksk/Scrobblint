@@ -26,40 +26,40 @@ public interface IScrobbleRepository
 
     Task<Scrobble?> GetLatestAsync(Guid userId, CancellationToken cancellationToken = default);
 
-    Task<int> CountAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> CountAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
-    Task<int> CountDistinctArtistsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> CountDistinctArtistsAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
-    Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> CountDistinctTracksAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
-    Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<int> CountDistinctAlbumsAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(
-        Guid userId, int limit, CancellationToken cancellationToken = default);
+        Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<AlbumCount>> GetTopAlbumsAsync(
-        Guid userId, int limit, CancellationToken cancellationToken = default);
+        Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(
-        Guid userId, int limit, CancellationToken cancellationToken = default);
+        Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     /// <summary>Listens grouped by calendar month (UTC), oldest first.</summary>
     Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(
-        Guid userId, CancellationToken cancellationToken = default);
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Listens grouped by day (UTC) over the trailing <paramref name="days"/> window.</summary>
+    /// <summary>Listens grouped by day (UTC). Defaults to the trailing <see cref="AppConstants.DailyChartDays"/> window when no range is given.</summary>
     Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(
-        Guid userId, int days, CancellationToken cancellationToken = default);
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     /// <summary>Listens grouped by hour of day (UTC), all 24 hours including zeros.</summary>
     Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(
-        Guid userId, CancellationToken cancellationToken = default);
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     /// <summary>Listens grouped by day of week (UTC), all seven days including zeros.</summary>
     Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(
-        Guid userId, CancellationToken cancellationToken = default);
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     /// <summary>Listens grouped by calendar year (UTC), oldest first.</summary>
     Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(
-        Guid userId, CancellationToken cancellationToken = default);
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 }

@@ -68,37 +68,37 @@ public sealed class ScrobbleRepository : IScrobbleRepository
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<int> CountAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<int> CountAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        return await db.Scrobbles.Where(s => s.UserId == userId).CountAsync(cancellationToken);
+        return await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to).CountAsync(cancellationToken);
     }
 
-    public async Task<int> CountDistinctArtistsAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<int> CountDistinctArtistsAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        return await db.Scrobbles.Where(s => s.UserId == userId)
+        return await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .Select(s => s.Artist).Distinct().CountAsync(cancellationToken);
     }
 
-    public async Task<int> CountDistinctTracksAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<int> CountDistinctTracksAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        return await db.Scrobbles.Where(s => s.UserId == userId)
+        return await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .Select(s => new { s.Artist, s.Track }).Distinct().CountAsync(cancellationToken);
     }
 
-    public async Task<int> CountDistinctAlbumsAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<int> CountDistinctAlbumsAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        return await db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
+        return await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != ""), from, to)
             .Select(s => new { s.Artist, s.Album }).Distinct().CountAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ArtistCount>> GetTopArtistsAsync(Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => s.Artist)
             .Select(g => new { Artist = g.Key, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Artist)
@@ -108,10 +108,10 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return rows.Select(r => new ArtistCount(r.Artist, r.Count)).ToList();
     }
 
-    public async Task<IReadOnlyList<AlbumCount>> GetTopAlbumsAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AlbumCount>> GetTopAlbumsAsync(Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != "")
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId && s.Album != null && s.Album != ""), from, to)
             .GroupBy(s => new { s.Artist, Album = s.Album! })
             .Select(g => new { g.Key.Artist, g.Key.Album, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Album)
@@ -121,10 +121,10 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return rows.Select(r => new AlbumCount(r.Artist, r.Album, r.Count)).ToList();
     }
 
-    public async Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => new { s.Artist, s.Track })
             .Select(g => new { g.Key.Artist, g.Key.Track, Count = g.Count() })
             .OrderByDescending(x => x.Count).ThenBy(x => x.Track)
@@ -134,11 +134,11 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return rows.Select(r => new TrackCount(r.Artist, r.Track, r.Count)).ToList();
     }
 
-    public async Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         // Group by calendar month in the database; format the label in memory.
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => new { s.Timestamp.Year, s.Timestamp.Month })
             .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
             .OrderBy(r => r.Year).ThenBy(r => r.Month)
@@ -147,13 +147,13 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return rows.Select(r => new ChartPoint($"{r.Year:D4}-{r.Month:D2}", r.Count)).ToList();
     }
 
-    public async Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(Guid userId, int days, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
-        var cutoff = DateTime.UtcNow.Date.AddDays(-(days - 1));
+        // Default to trailing 30-day window when no range is specified.
+        var effectiveFrom = from ?? DateTime.UtcNow.Date.AddDays(-(AppConstants.DailyChartDays - 1));
 
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles
-            .Where(s => s.UserId == userId && s.Timestamp >= cutoff)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), effectiveFrom, to)
             .GroupBy(s => new { s.Timestamp.Year, s.Timestamp.Month, s.Timestamp.Day })
             .Select(g => new { g.Key.Year, g.Key.Month, g.Key.Day, Count = g.Count() })
             .OrderBy(r => r.Year).ThenBy(r => r.Month).ThenBy(r => r.Day)
@@ -162,10 +162,10 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return rows.Select(r => new ChartPoint($"{r.Year:D4}-{r.Month:D2}-{r.Day:D2}", r.Count)).ToList();
     }
 
-    public async Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => s.Timestamp.Hour)
             .Select(g => new { Hour = g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
@@ -177,10 +177,10 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return result;
     }
 
-    public async Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => s.Timestamp.DayOfWeek)
             .Select(g => new { DayOfWeek = (int)g.Key, Count = g.Count() })
             .ToListAsync(cancellationToken);
@@ -197,15 +197,22 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return result;
     }
 
-    public async Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
-        var rows = await db.Scrobbles.Where(s => s.UserId == userId)
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
             .GroupBy(s => s.Timestamp.Year)
             .Select(g => new { Year = g.Key, Count = g.Count() })
             .OrderBy(r => r.Year)
             .ToListAsync(cancellationToken);
 
         return rows.Select(r => new ChartPoint(r.Year.ToString("D4"), r.Count)).ToList();
+    }
+
+    private static IQueryable<Scrobble> ApplyDateFilter(IQueryable<Scrobble> q, DateTime? from, DateTime? to)
+    {
+        if (from.HasValue) q = q.Where(s => s.Timestamp >= from.Value);
+        if (to.HasValue) q = q.Where(s => s.Timestamp < to.Value);
+        return q;
     }
 }

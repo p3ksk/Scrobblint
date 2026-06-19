@@ -21,7 +21,10 @@ public sealed class StatisticsService : IStatisticsService
         _settings = settings;
     }
 
-    public async Task<Result<StatsResponse>> GetStatsAsync(string username, ViewerContext viewer, CancellationToken cancellationToken = default)
+    public async Task<Result<StatsResponse>> GetStatsAsync(
+        string username, ViewerContext viewer,
+        DateTime? from = null, DateTime? to = null,
+        CancellationToken cancellationToken = default)
     {
         var user = await _users.GetByUsernameAsync(username, cancellationToken);
         if (user is null || user.IsDisabled)
@@ -33,18 +36,18 @@ public sealed class StatisticsService : IStatisticsService
             return Result<StatsResponse>.Forbidden("This profile is private.");
 
         // Each call is a separate, individually-optimised aggregate query.
-        var total = await _scrobbles.CountAsync(user.Id, cancellationToken);
-        var uniqueArtists = await _scrobbles.CountDistinctArtistsAsync(user.Id, cancellationToken);
-        var uniqueTracks = await _scrobbles.CountDistinctTracksAsync(user.Id, cancellationToken);
-        var uniqueAlbums = await _scrobbles.CountDistinctAlbumsAsync(user.Id, cancellationToken);
-        var topArtists = await _scrobbles.GetTopArtistsAsync(user.Id, AppConstants.TopListSize, cancellationToken);
-        var topAlbums = await _scrobbles.GetTopAlbumsAsync(user.Id, AppConstants.TopListSize, cancellationToken);
-        var topTracks = await _scrobbles.GetTopTracksAsync(user.Id, AppConstants.TopListSize, cancellationToken);
-        var monthly = await _scrobbles.GetMonthlyChartAsync(user.Id, cancellationToken);
-        var daily = await _scrobbles.GetDailyChartAsync(user.Id, AppConstants.DailyChartDays, cancellationToken);
-        var hourly = await _scrobbles.GetHourlyChartAsync(user.Id, cancellationToken);
-        var dayOfWeek = await _scrobbles.GetDayOfWeekChartAsync(user.Id, cancellationToken);
-        var yearly = await _scrobbles.GetYearlyChartAsync(user.Id, cancellationToken);
+        var total = await _scrobbles.CountAsync(user.Id, from, to, cancellationToken);
+        var uniqueArtists = await _scrobbles.CountDistinctArtistsAsync(user.Id, from, to, cancellationToken);
+        var uniqueTracks = await _scrobbles.CountDistinctTracksAsync(user.Id, from, to, cancellationToken);
+        var uniqueAlbums = await _scrobbles.CountDistinctAlbumsAsync(user.Id, from, to, cancellationToken);
+        var topArtists = await _scrobbles.GetTopArtistsAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
+        var topAlbums = await _scrobbles.GetTopAlbumsAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
+        var topTracks = await _scrobbles.GetTopTracksAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
+        var monthly = await _scrobbles.GetMonthlyChartAsync(user.Id, from, to, cancellationToken);
+        var daily = await _scrobbles.GetDailyChartAsync(user.Id, from, to, cancellationToken);
+        var hourly = await _scrobbles.GetHourlyChartAsync(user.Id, from, to, cancellationToken);
+        var dayOfWeek = await _scrobbles.GetDayOfWeekChartAsync(user.Id, from, to, cancellationToken);
+        var yearly = await _scrobbles.GetYearlyChartAsync(user.Id, from, to, cancellationToken);
 
         return Result<StatsResponse>.Ok(new StatsResponse(
             total, uniqueArtists, uniqueTracks, uniqueAlbums,

@@ -338,6 +338,18 @@ form input:focus, form select:focus {
 .profile-header { margin-bottom: 1.5rem; }
 .profile-header h1 { display: inline-block; }
 
+/* -------- inline filter form (date range on stats page) -------- */
+.filter-form { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0; }
+.filter-form label {
+    display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;
+    font-family: var(--font-display); font-size: 0.8rem; text-transform: uppercase;
+    letter-spacing: 0.03em; font-weight: 700; color: var(--muted-ink);
+}
+.filter-form input[type="date"] {
+    display: inline; width: auto; margin-top: 0;
+    padding: 0.4rem 0.5rem; font-size: 0.9rem; font-weight: 600;
+}
+
 /* -------- settings sub-nav (tabs) -------- */
 .settings-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 1.5rem; }
 .settings-tab {

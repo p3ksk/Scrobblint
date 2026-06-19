@@ -9,5 +9,7 @@ namespace Scrobblint.Application.Services;
 public interface IStatisticsService
 {
     Task<Result<StatsResponse>> GetStatsAsync(
-        string username, ViewerContext viewer, CancellationToken cancellationToken = default);
+        string username, ViewerContext viewer,
+        DateTime? from = null, DateTime? to = null,
+        CancellationToken cancellationToken = default);
 }

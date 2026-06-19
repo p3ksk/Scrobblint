@@ -25,18 +25,25 @@ public sealed class CachedStatisticsService : IStatisticsService
         _cache = cache;
     }
 
-    public async Task<Result<StatsResponse>> GetStatsAsync(string username, ViewerContext viewer, CancellationToken cancellationToken = default)
+    public async Task<Result<StatsResponse>> GetStatsAsync(
+        string username, ViewerContext viewer,
+        DateTime? from = null, DateTime? to = null,
+        CancellationToken cancellationToken = default)
     {
         // Resolve the subject so the cache key is the user id (writers invalidate by id). For an
         // unknown user, let the inner service produce the canonical not-found result, uncached.
         var user = await _users.GetByUsernameAsync(username, cancellationToken);
         if (user is null || user.IsDisabled)
-            return await _inner.GetStatsAsync(username, viewer, cancellationToken);
+            return await _inner.GetStatsAsync(username, viewer, from, to, cancellationToken);
+
+        // Date-filtered queries are unique per range — don't pollute or saturate the cache.
+        if (from is not null || to is not null)
+            return await _inner.GetStatsAsync(username, viewer, from, to, cancellationToken);
 
         return (await _cache.GetOrCreateAsync(CacheKeys.Stats(user.Id), async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
-            return await _inner.GetStatsAsync(username, viewer, cancellationToken);
+            return await _inner.GetStatsAsync(username, viewer, cancellationToken: cancellationToken);
         }))!;
     }
 }

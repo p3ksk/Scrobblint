@@ -7,6 +7,29 @@
 
 <h1>Statistics</h1>
 
+<div class="card">
+    <nav class="settings-nav" aria-label="Date range presets">
+        <a class='settings-tab @PresetClass(IsAllTime)' href="@RangeHref(null, null)">All time</a>
+        <a class='settings-tab @PresetClass(IsLast7)' href="@RangeHref(SevenDaysAgo, Today)">Last 7 days</a>
+        <a class='settings-tab @PresetClass(IsLast30)' href="@RangeHref(ThirtyDaysAgo, Today)">Last 30 days</a>
+        <a class='settings-tab @PresetClass(IsThisYear)' href="@RangeHref(ThisYearStart, Today)">This year</a>
+        <a class='settings-tab @PresetClass(IsLastYear)' href="@RangeHref(LastYearStart, LastYearEnd)">Last year</a>
+    </nav>
+    <form method="get" action="/stats" class="filter-form">
+        @if (_tab is not null)
+        {
+            <input type="hidden" name="tab" value="@_tab" />
+        }
+        <label>From <input type="date" name="from" value="@_fromParam" /></label>
+        <label>To <input type="date" name="to" value="@_toParam" /></label>
+        <button type="submit" class="btn btn-primary">Apply</button>
+        @if (!IsAllTime)
+        {
+            <a class="btn" href="@RangeHref(null, null)">Clear</a>
+        }
+    </form>
+</div>
+
 @if (_stats is null)
 {
     <p>Loading…</p>
@@ -64,11 +87,11 @@ else
 
     <div class="card">
         <nav class="settings-nav" aria-label="Charts">
-            <a class='settings-tab @TabClass("monthly")' href="/stats?tab=monthly">Monthly</a>
-            <a class='settings-tab @TabClass("daily")' href="/stats?tab=daily">Daily</a>
-            <a class='settings-tab @TabClass("hourly")' href="/stats?tab=hourly">Hourly</a>
-            <a class='settings-tab @TabClass("weekly")' href="/stats?tab=weekly">Day of week</a>
-            <a class='settings-tab @TabClass("yearly")' href="/stats?tab=yearly">Yearly</a>
+            <a class='settings-tab @TabClass("monthly")' href="/stats?@ChartTabQuery("monthly")">Monthly</a>
+            <a class='settings-tab @TabClass("daily")' href="/stats?@ChartTabQuery("daily")">Daily</a>
+            <a class='settings-tab @TabClass("hourly")' href="/stats?@ChartTabQuery("hourly")">Hourly</a>
+            <a class='settings-tab @TabClass("weekly")' href="/stats?@ChartTabQuery("weekly")">Day of week</a>
+            <a class='settings-tab @TabClass("yearly")' href="/stats?@ChartTabQuery("yearly")">Yearly</a>
         </nav>
 
         @switch (_tab ?? "monthly")
@@ -81,7 +104,7 @@ else
                     <div class="pager">
                         @if (_monthlyPage > 0)
                         {
-                            <a class="btn" href="/stats?tab=monthly&monthlyPage=@(_monthlyPage - 1)">← Previous</a>
+                            <a class="btn" href="/stats?@ChartTabQuery("monthly", _monthlyPage - 1)">← Previous</a>
                         }
                         else
                         {
@@ -90,7 +113,7 @@ else
                         <span>Page @(_monthlyPage + 1) of @MonthlyTotalPages</span>
                         @if (_monthlyPage < MonthlyTotalPages - 1)
                         {
-                            <a class="btn" href="/stats?tab=monthly&monthlyPage=@(_monthlyPage + 1)">Next →</a>
+                            <a class="btn" href="/stats?@ChartTabQuery("monthly", _monthlyPage + 1)">Next →</a>
                         }
                         else
                         {
@@ -100,7 +123,7 @@ else
                 }
                 break;
             case "daily":
-                <h2>Daily chart (last 30 days)</h2>
+                <h2>Daily chart @(IsAllTime ? "(last 30 days)" : $"({_fromParam} – {_toParam ?? Today})")</h2>
                 @RenderBars(_stats.DailyChart)
                 break;
             case "hourly":
@@ -123,10 +146,59 @@ else
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] private string? _tab { get; set; }
     [SupplyParameterFromQuery(Name = "monthlyPage")] private int _monthlyPage { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] private string? _fromParam { get; set; }
+    [SupplyParameterFromQuery(Name = "to")] private string? _toParam { get; set; }
+
     private StatsResponse? _stats;
     private Dictionary<string, string?> _artistImages = new();
     private Dictionary<string, string?> _albumImages = new();
     private const int MonthlyPageSize = 12;
+
+    // Preset date strings (UTC)
+    private static string Today => DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+    private static string SevenDaysAgo => DateTime.UtcNow.Date.AddDays(-7).ToString("yyyy-MM-dd");
+    private static string ThirtyDaysAgo => DateTime.UtcNow.Date.AddDays(-30).ToString("yyyy-MM-dd");
+    private static string ThisYearStart => new DateTime(DateTime.UtcNow.Year, 1, 1).ToString("yyyy-MM-dd");
+    private static string LastYearStart => new DateTime(DateTime.UtcNow.Year - 1, 1, 1).ToString("yyyy-MM-dd");
+    private static string LastYearEnd => new DateTime(DateTime.UtcNow.Year - 1, 12, 31).ToString("yyyy-MM-dd");
+
+    // Active preset detection
+    private bool IsAllTime => _fromParam is null && _toParam is null;
+    private bool IsLast7 => _fromParam == SevenDaysAgo && _toParam == Today;
+    private bool IsLast30 => _fromParam == ThirtyDaysAgo && _toParam == Today;
+    private bool IsThisYear => _fromParam == ThisYearStart && _toParam == Today;
+    private bool IsLastYear => _fromParam == LastYearStart && _toParam == LastYearEnd;
+
+    // Parsed UTC bounds passed to the service (to is exclusive end-of-day)
+    private DateTime? FromUtc => ParseDateParam(_fromParam);
+    private DateTime? ToUtc => ParseDateParam(_toParam)?.AddDays(1);
+
+    private static DateTime? ParseDateParam(string? s) =>
+        !string.IsNullOrEmpty(s) && DateTime.TryParseExact(s, "yyyy-MM-dd", null,
+            System.Globalization.DateTimeStyles.None, out var d)
+            ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
+            : null;
+
+    private string RangeHref(string? from, string? to)
+    {
+        var parts = new List<string>();
+        if (_tab is not null) parts.Add($"tab={_tab}");
+        if (from is not null) parts.Add($"from={from}");
+        if (to is not null) parts.Add($"to={to}");
+        return parts.Count > 0 ? "/stats?" + string.Join("&", parts) : "/stats";
+    }
+
+    private string ChartTabQuery(string tab, int? monthlyPage = null)
+    {
+        var parts = new List<string> { $"tab={tab}" };
+        if (_fromParam is not null) parts.Add($"from={_fromParam}");
+        if (_toParam is not null) parts.Add($"to={_toParam}");
+        if (monthlyPage is not null) parts.Add($"monthlyPage={monthlyPage}");
+        return string.Join("&", parts);
+    }
+
+    private string PresetClass(bool active) => active ? "active" : "";
+    private string TabClass(string tab) => (_tab ?? "monthly") == tab ? "active" : "";
 
     private int MonthlyTotalPages => _stats is null ? 0 : (int)Math.Ceiling(_stats.MonthlyChart.Count / (double)MonthlyPageSize);
 
@@ -141,14 +213,11 @@ else
         }
     }
 
-    private string TabClass(string tab) =>
-        (_tab ?? "monthly") == tab ? "active" : "";
-
     protected override async Task OnInitializedAsync()
     {
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
-        var result = await Stats.GetStatsAsync(user.GetUsername()!, viewer);
+        var result = await Stats.GetStatsAsync(user.GetUsername()!, viewer, FromUtc, ToUtc);
         if (result.Succeeded) _stats = result.Value;
 
         if (_stats is null) return;
