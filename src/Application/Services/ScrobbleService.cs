@@ -8,6 +8,7 @@ using Scrobblint.Domain.Entities;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Common;
 using Scrobblint.Shared.Scrobbles;
+using Scrobblint.Shared.Stats;
 
 namespace Scrobblint.Application.Services;
 
@@ -203,5 +204,91 @@ public sealed class ScrobbleService : IScrobbleService
     {
         var settings = await _settings.GetByUserIdAsync(userId, cancellationToken);
         return settings?.ProfileVisibility ?? ProfileVisibility.Public;
+    }
+
+    // ── Artist / album detail ──────────────────────────────────────────────
+
+    public async Task<Result<ArtistDetail>> GetArtistDetailAsync(string username, string artist, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<ArtistDetail>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<ArtistDetail>.Forbidden("This profile is private.");
+
+        var totalPlays = await _scrobbles.CountByArtistAsync(user.Id, artist, ct);
+        var (first, last) = await _scrobbles.GetPlayRangeByArtistAsync(user.Id, artist, ct);
+        var tracks = await _scrobbles.GetTracksByArtistAsync(user.Id, artist, ct);
+
+        return Result<ArtistDetail>.Ok(new ArtistDetail(artist, totalPlays, first, last, tracks));
+    }
+
+    public async Task<Result<AlbumDetail>> GetAlbumDetailAsync(string username, string artist, string album, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<AlbumDetail>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<AlbumDetail>.Forbidden("This profile is private.");
+
+        var totalPlays = await _scrobbles.CountByAlbumAsync(user.Id, artist, album, ct);
+        var (first, last) = await _scrobbles.GetPlayRangeByAlbumAsync(user.Id, artist, album, ct);
+        var tracks = await _scrobbles.GetTracksByAlbumAsync(user.Id, artist, album, ct);
+
+        return Result<AlbumDetail>.Ok(new AlbumDetail(artist, album, totalPlays, first, last, tracks));
+    }
+
+    public async Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByArtistAsync(
+        string username, string artist, int page, int pageSize, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<PagedResponse<ScrobbleResponse>>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<PagedResponse<ScrobbleResponse>>.Forbidden("This profile is private.");
+
+        page = AppConstants.ClampPage(page);
+        pageSize = AppConstants.ClampPageSize(pageSize);
+
+        var (items, total) = await _scrobbles.GetRecentByArtistAsync(user.Id, artist, page, pageSize, ct);
+        var mapped = items.Select(s => s.ToResponse()).ToList();
+        return Result<PagedResponse<ScrobbleResponse>>.Ok(
+            new PagedResponse<ScrobbleResponse>(mapped, page, pageSize, total));
+    }
+
+    public async Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByAlbumAsync(
+        string username, string artist, string album, int page, int pageSize, ViewerContext viewer, CancellationToken ct)
+    {
+        var user = await _users.GetByUsernameAsync(username, ct);
+        if (user is null || user.IsDisabled)
+            return Result<PagedResponse<ScrobbleResponse>>.NotFound("User not found.");
+
+        var visibility = await ResolveVisibilityAsync(user.Id, ct);
+        if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
+            return Result<PagedResponse<ScrobbleResponse>>.Forbidden("This profile is private.");
+
+        page = AppConstants.ClampPage(page);
+        pageSize = AppConstants.ClampPageSize(pageSize);
+
+        var (items, total) = await _scrobbles.GetRecentByAlbumAsync(user.Id, artist, album, page, pageSize, ct);
+        var mapped = items.Select(s => s.ToResponse()).ToList();
+        return Result<PagedResponse<ScrobbleResponse>>.Ok(
+            new PagedResponse<ScrobbleResponse>(mapped, page, pageSize, total));
+    }
+
+    public async Task<Result> DeleteAsync(Guid userId, Guid scrobbleId, CancellationToken ct)
+    {
+        var deleted = await _scrobbles.DeleteAsync(scrobbleId, userId, ct);
+        if (!deleted)
+            return Result.NotFound("Scrobble not found or not owned by this user.");
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return Result.Ok();
     }
 }

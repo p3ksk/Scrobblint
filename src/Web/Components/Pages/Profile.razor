@@ -34,10 +34,10 @@ else if (_profile is not null)
                     <img src="@_nowPlayingImage" class="art-thumb art-thumb-lg" alt="" />
                 }
                 <div>
-                    <p class="track-line"><span class="track">@np.Track</span> — <span class="artist">@np.Artist</span></p>
+                    <p class="track-line"><span class="track">@np.Track</span> — <a href="/artist/@Uri.EscapeDataString(np.Artist)" class="artist">@np.Artist</a></p>
                     @if (np.Album is not null)
                     {
-                        <p class="muted">Album: @np.Album</p>
+                        <p class="muted">Album: <a href="/album/@Uri.EscapeDataString(np.Artist)/@Uri.EscapeDataString(np.Album)" class="muted">@np.Album</a></p>
                     }
                 </div>
             </div>
@@ -53,7 +53,7 @@ else if (_profile is not null)
                     <img src="@_latestImage" class="art-thumb art-thumb-lg" alt="" />
                 }
                 <div>
-                    <p class="track-line"><span class="track">@latest.Track</span> — <span class="artist">@latest.Artist</span></p>
+                    <p class="track-line"><span class="track">@latest.Track</span> — <a href="/artist/@Uri.EscapeDataString(latest.Artist)" class="artist">@latest.Artist</a></p>
                     <p class="muted">@Format.Ago(latest.Timestamp)</p>
                 </div>
             </div>
@@ -73,7 +73,7 @@ else if (_profile is not null)
                             <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
                         }
                         <span class="track">@s.Track</span>
-                        <span class="artist">@s.Artist</span>
+                        <a href="/artist/@Uri.EscapeDataString(s.Artist)" class="artist">@s.Artist</a>
                         <span class="time">@Format.Ago(s.Timestamp)</span>
                     </li>
                 }

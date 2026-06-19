@@ -7,6 +7,11 @@
 
 <h1>Recent scrobbles</h1>
 
+@if (_deleted)
+{
+    <div class="alert alert-success">Scrobble deleted.</div>
+}
+
 @if (_page is null)
 {
     <p>Loading…</p>
@@ -20,7 +25,7 @@ else
     <div class="card">
         <table class="table">
             <thead>
-                <tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>When</th></tr>
+                <tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>When</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var s in _page.Items)
@@ -33,9 +38,20 @@ else
                             }
                         </td>
                         <td>@s.Track</td>
-                        <td>@s.Artist</td>
-                        <td class="muted">@(s.Album ?? "")</td>
+                        <td><a href="/artist/@Uri.EscapeDataString(s.Artist)">@s.Artist</a></td>
+                        <td class="muted">
+                            @if (!string.IsNullOrEmpty(s.Album))
+                            {
+                                <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)">@s.Album</a>
+                            }
+                        </td>
                         <td class="muted" title="@Format.DateTimeUtc(s.Timestamp)">@Format.Ago(s.Timestamp)</td>
+                        <td>
+                            <form method="post" action="/account/scrobbles/@s.Id/delete" class="inline-form">
+                                <AntiforgeryToken />
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -58,12 +74,15 @@ else
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
     [SupplyParameterFromQuery] private int? Page { get; set; }
+    [SupplyParameterFromQuery(Name = "deleted")] private int? Deleted { get; set; }
 
     private PagedResponse<ScrobbleResponse>? _page;
     private Dictionary<Guid, string?> _albumCovers = new();
+    private bool _deleted;
 
     protected override async Task OnInitializedAsync()
     {
+        _deleted = Deleted == 1;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var result = await Scrobbles.GetRecentAsync(user.GetUsername()!, Page ?? 1, 50, viewer);

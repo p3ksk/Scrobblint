@@ -129,6 +129,17 @@ public static class UiFormEndpoints
             return Results.LocalRedirect("/settings/connections");
         }).RequireAuthorization();
 
+        // ---- Current user: scrobble management ----
+        app.MapPost("/account/scrobbles/{id:guid}/delete", async (
+            Guid id, HttpContext context, IAntiforgery antiforgery, IScrobbleService scrobbles) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            var result = await scrobbles.DeleteAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
+            return result.Succeeded
+                ? Results.LocalRedirect("/recent?deleted=1")
+                : Results.LocalRedirect($"/recent?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+        }).RequireAuthorization();
+
         // ---- Admin ----
         var admin = app.MapGroup("/admin/users").RequireAuthorization(adminPolicy);
 

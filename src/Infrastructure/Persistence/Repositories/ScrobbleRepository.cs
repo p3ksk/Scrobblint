@@ -215,4 +215,120 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         if (to.HasValue) q = q.Where(s => s.Timestamp < to.Value);
         return q;
     }
+
+    // ── Artist / album drill-down ──────────────────────────────────────────
+
+    public async Task<int> CountByArtistAsync(Guid userId, string artist, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist)
+            .CountAsync(ct);
+    }
+
+    public async Task<int> CountByAlbumAsync(Guid userId, string artist, string album, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Album == album)
+            .CountAsync(ct);
+    }
+
+    public async Task<(DateTime? First, DateTime? Last)> GetPlayRangeByArtistAsync(Guid userId, string artist, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var query = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist)
+            .Select(s => s.Timestamp);
+
+        var first = await query.OrderBy(t => t).FirstOrDefaultAsync(ct);
+        var last  = await query.OrderByDescending(t => t).FirstOrDefaultAsync(ct);
+        return (first == default ? null : first, last == default ? null : last);
+    }
+
+    public async Task<(DateTime? First, DateTime? Last)> GetPlayRangeByAlbumAsync(Guid userId, string artist, string album, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var query = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Album == album)
+            .Select(s => s.Timestamp);
+
+        var first = await query.OrderBy(t => t).FirstOrDefaultAsync(ct);
+        var last  = await query.OrderByDescending(t => t).FirstOrDefaultAsync(ct);
+        return (first == default ? null : first, last == default ? null : last);
+    }
+
+    public async Task<IReadOnlyList<TrackCount>> GetTracksByArtistAsync(Guid userId, string artist, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist)
+            .GroupBy(s => s.Track)
+            .Select(g => new { Track = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Track)
+            .ToListAsync(ct);
+
+        return rows.Select(r => new TrackCount(artist, r.Track, r.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<TrackCount>> GetTracksByAlbumAsync(Guid userId, string artist, string album, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Album == album)
+            .GroupBy(s => s.Track)
+            .Select(g => new { Track = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Track)
+            .ToListAsync(ct);
+
+        return rows.Select(r => new TrackCount(artist, r.Track, r.Count)).ToList();
+    }
+
+    public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByArtistAsync(
+        Guid userId, string artist, int page, int pageSize, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var baseQuery = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist);
+
+        var total = await baseQuery.CountAsync(ct);
+        var items = await baseQuery
+            .OrderByDescending(s => s.Timestamp)
+            .ThenByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByAlbumAsync(
+        Guid userId, string artist, string album, int page, int pageSize, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var baseQuery = db.Scrobbles.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Artist == artist && s.Album == album);
+
+        var total = await baseQuery.CountAsync(ct);
+        var items = await baseQuery
+            .OrderByDescending(s => s.Timestamp)
+            .ThenByDescending(s => s.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
+
+    public async Task<bool> DeleteAsync(Guid scrobbleId, Guid userId, CancellationToken ct)
+    {
+        var scrobble = await _context.Scrobbles
+            .Where(s => s.Id == scrobbleId && s.UserId == userId)
+            .FirstOrDefaultAsync(ct);
+
+        if (scrobble is null) return false;
+
+        _context.Scrobbles.Remove(scrobble);
+        return true;
+    }
 }

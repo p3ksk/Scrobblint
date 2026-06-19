@@ -1,6 +1,7 @@
 using Scrobblint.Application.Common;
 using Scrobblint.Shared.Common;
 using Scrobblint.Shared.Scrobbles;
+using Scrobblint.Shared.Stats;
 
 namespace Scrobblint.Application.Services;
 
@@ -33,4 +34,19 @@ public interface IScrobbleService
 
     /// <summary>Returns the user's active now-playing signal by username, or null.</summary>
     Task<NowPlayingResponse?> GetNowPlayingByUsernameAsync(string username, CancellationToken cancellationToken = default);
+
+    /// <summary>Detail data for an artist: plays, first/last heard, tracks.</summary>
+    Task<Result<ArtistDetail>> GetArtistDetailAsync(string username, string artist, ViewerContext viewer, CancellationToken cancellationToken = default);
+
+    /// <summary>Detail data for an album: plays, first/last heard, tracks.</summary>
+    Task<Result<AlbumDetail>> GetAlbumDetailAsync(string username, string artist, string album, ViewerContext viewer, CancellationToken cancellationToken = default);
+
+    /// <summary>Recent scrobbles filtered to a specific artist, respecting profile visibility.</summary>
+    Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByArtistAsync(string username, string artist, int page, int pageSize, ViewerContext viewer, CancellationToken cancellationToken = default);
+
+    /// <summary>Recent scrobbles filtered to a specific album, respecting profile visibility.</summary>
+    Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentByAlbumAsync(string username, string artist, string album, int page, int pageSize, ViewerContext viewer, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a scrobble owned by the specified user.</summary>
+    Task<Result> DeleteAsync(Guid userId, Guid scrobbleId, CancellationToken cancellationToken = default);
 }

@@ -62,4 +62,33 @@ public interface IScrobbleRepository
     /// <summary>Listens grouped by calendar year (UTC), oldest first.</summary>
     Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(
         Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
+
+    // ── Artist / album drill-down ──────────────────────────────────────────
+
+    /// <summary>Total scrobble count for a specific artist.</summary>
+    Task<int> CountByArtistAsync(Guid userId, string artist, CancellationToken cancellationToken = default);
+
+    /// <summary>Total scrobble count for a specific album (artist-scoped).</summary>
+    Task<int> CountByAlbumAsync(Guid userId, string artist, string album, CancellationToken cancellationToken = default);
+
+    /// <summary>Earliest and most recent listen timestamps for an artist.</summary>
+    Task<(DateTime? First, DateTime? Last)> GetPlayRangeByArtistAsync(Guid userId, string artist, CancellationToken cancellationToken = default);
+
+    /// <summary>Earliest and most recent listen timestamps for an album.</summary>
+    Task<(DateTime? First, DateTime? Last)> GetPlayRangeByAlbumAsync(Guid userId, string artist, string album, CancellationToken cancellationToken = default);
+
+    /// <summary>Distinct tracks for an artist with play counts, ordered by count desc.</summary>
+    Task<IReadOnlyList<TrackCount>> GetTracksByArtistAsync(Guid userId, string artist, CancellationToken cancellationToken = default);
+
+    /// <summary>Distinct tracks for an album with play counts, ordered by count desc.</summary>
+    Task<IReadOnlyList<TrackCount>> GetTracksByAlbumAsync(Guid userId, string artist, string album, CancellationToken cancellationToken = default);
+
+    /// <summary>Paginated recent scrobbles for a specific artist, newest first.</summary>
+    Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByArtistAsync(Guid userId, string artist, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Paginated recent scrobbles for a specific album, newest first.</summary>
+    Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentByAlbumAsync(Guid userId, string artist, string album, int page, int pageSize, CancellationToken cancellationToken = default);
+
+    /// <summary>Deletes a single scrobble by id if it belongs to the specified user. Returns true if deleted.</summary>
+    Task<bool> DeleteAsync(Guid scrobbleId, Guid userId, CancellationToken cancellationToken = default);
 }

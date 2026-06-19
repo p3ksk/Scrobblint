@@ -54,7 +54,7 @@ else
                         {
                             <img src="@imgUrl" class="art-thumb art-thumb-sm" alt="" />
                         }
-                        <span>@a.Artist</span><span class="count">@a.Count</span>
+                        <a href="/artist/@Uri.EscapeDataString(a.Artist)" class="rank-link">@a.Artist</a><span class="count">@a.Count</span>
                     </li>
                 }
             </ol>
@@ -65,11 +65,11 @@ else
                 @foreach (var a in _stats.TopAlbums)
                 {
                     <li>
-                        @if (_albumImages.TryGetValue(a.Album, out var coverUrl) && coverUrl is not null)
+                        @if (_albumImages.TryGetValue($"{a.Artist}::{a.Album}", out var coverUrl) && coverUrl is not null)
                         {
                             <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
                         }
-                        <span>@a.Album <span class="muted">— @a.Artist</span></span><span class="count">@a.Count</span>
+                        <a href="/album/@Uri.EscapeDataString(a.Artist)/@Uri.EscapeDataString(a.Album)" class="rank-link">@a.Album <span class="muted">— @a.Artist</span></a><span class="count">@a.Count</span>
                     </li>
                 }
             </ol>
@@ -229,7 +229,7 @@ else
 
         Dictionary<string, Task<string?>>? albumTasks = null;
         if (_stats.TopAlbums is { Count: > 0 } topAlbums)
-            albumTasks = topAlbums.ToDictionary(a => a.Album, a => CoverArt.GetAlbumCoverUrlAsync(a.Artist, a.Album));
+            albumTasks = topAlbums.ToDictionary(a => $"{a.Artist}::{a.Album}", a => CoverArt.GetAlbumCoverUrlAsync(a.Artist, a.Album));
 
         var tasks = new List<Task>();
         if (artistTasks is not null) tasks.AddRange(artistTasks.Values);

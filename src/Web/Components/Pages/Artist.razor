@@ -1,0 +1,144 @@
+@page "/artist/{ArtistName}"
+@attribute [Authorize]
+@inject IScrobbleService Scrobbles
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
+
+<PageTitle>@ArtistName — Scrobblint</PageTitle>
+
+<h1>@ArtistName</h1>
+
+@if (_detail is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="card">
+        <div class="now-playing-card">
+            @if (_artistImage is not null)
+            {
+                <img src="@_artistImage" class="art-thumb art-thumb-lg" alt="" />
+            }
+            <div>
+                <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
+                @if (_detail.FirstPlayed is not null)
+                {
+                    <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value))</p>
+                }
+                @if (_detail.LastPlayed is not null)
+                {
+                    <p class="muted">Last heard @Format.Ago(Mappers.ToUnix(_detail.LastPlayed.Value))</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Tracks</h2>
+            @if (_detail.Tracks.Count > 0)
+            {
+                <ol class="rank-list">
+                    @foreach (var t in _detail.Tracks)
+                    {
+                        <li><span>@t.Track</span><span class="count">@t.Count</span></li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <p class="muted">No tracks.</p>
+            }
+        </div>
+
+        <div class="card">
+            <h2>Recent listens</h2>
+            @if (_recentPage is { Items.Count: > 0 })
+            {
+                <ul class="scrobble-list">
+                    @foreach (var s in _recentPage.Items)
+                    {
+                        <li>
+                            @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            {
+                                <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            <span class="track">@s.Track</span>
+                            @if (s.Album is not null)
+                            {
+                                <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>
+                            }
+                            <span class="time">@Format.Ago(s.Timestamp)</span>
+                        </li>
+                    }
+                </ul>
+                <div class="pager">
+                    @if (_page > 1)
+                    {
+                        <a class="btn" href="/artist/@Uri.EscapeDataString(ArtistName)?page=@(_page - 1)">← Previous</a>
+                    }
+                    <span class="muted">Page @_page</span>
+                    @if (_recentPage.HasNext)
+                    {
+                        <a class="btn" href="/artist/@Uri.EscapeDataString(ArtistName)?page=@(_page + 1)">Next →</a>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="muted">No scrobbles.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ArtistName { get; set; } = "";
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private ArtistDetail? _detail;
+    private PagedResponse<ScrobbleResponse>? _recentPage;
+    private string? _artistImage;
+    private Dictionary<Guid, string?> _recentAlbumCovers = new();
+    private int _page;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _page = Math.Max(1, Page ?? 1);
+        var user = (await AuthState!).User;
+        var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
+        var username = user.GetUsername()!;
+
+        var detail = await Scrobbles.GetArtistDetailAsync(username, ArtistName, viewer);
+        if (!detail.Succeeded) return;
+        var detailValue = detail.Value;
+        if (detailValue is null) return;
+        _detail = detailValue;
+
+        var tasks = new List<Task>();
+        var imageTask = CoverArt.GetArtistImageUrlAsync(_detail.Artist);
+        tasks.Add(imageTask);
+
+        var recentTask = Scrobbles.GetRecentByArtistAsync(username, ArtistName, _page, 10, viewer);
+        tasks.Add(recentTask);
+
+        await Task.WhenAll(tasks);
+
+        _artistImage = imageTask.Result;
+
+        if (recentTask.Result is { Succeeded: true } recentResult)
+            _recentPage = recentResult.Value;
+
+        if (_recentPage?.Items is { Count: > 0 } items)
+        {
+            var albumTasks = items
+                .Where(s => !string.IsNullOrEmpty(s.Album))
+                .ToDictionary(s => s.Id, s => CoverArt.GetAlbumCoverUrlAsync(s.Artist, s.Album!));
+            await Task.WhenAll(albumTasks.Values);
+            foreach (var kvp in albumTasks)
+                _recentAlbumCovers[kvp.Key] = kvp.Value.Result;
+        }
+    }
+}

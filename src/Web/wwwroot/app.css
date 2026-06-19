@@ -203,6 +203,7 @@ code {
 .btn:disabled, .btn[disabled] { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn-primary { background: var(--lime); color: var(--on-accent-dark); }
 .btn-danger  { background: var(--coral); color: var(--on-accent-light); }
+.btn-sm { padding: 0.3rem 0.55rem; font-size: 0.75rem; }
 .btn-link {
     border: none; box-shadow: none; background: none;
     text-transform: none; text-decoration: underline; padding: 0.2rem; color: inherit;
@@ -395,3 +396,19 @@ form input:focus, form select:focus {
 .now-playing-card { display: flex; align-items: center; gap: 1.25rem; }
 
 .art-cell { width: 42px; padding: 0.2rem 0.15rem 0.2rem 0.7rem; vertical-align: middle; }
+
+/* -------- detail pages -------- */
+.stat-line { margin: 0; }
+.stat-line strong { font-size: 1.8rem; }
+
+/* In rank lists, the label link replaces the first-of-type span flex rules */
+.rank-link {
+    flex: 1; font-weight: 600; text-decoration: none; color: inherit;
+}
+.rank-link:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+
+/* Artist/album links in scrobble lists and table cells */
+a.artist { color: var(--muted-ink); font-weight: 600; text-decoration: none; }
+a.artist:hover { color: var(--blue); text-decoration: underline; }
+a.muted { color: var(--muted-ink); text-decoration: none; }
+a.muted:hover { color: var(--blue); text-decoration: underline; }
