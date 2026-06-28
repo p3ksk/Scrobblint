@@ -28,6 +28,7 @@ public class StatisticsAndUserServiceTests
             new ScrobbleRequest("Radiohead", "Nude", "In Rainbows"),
             new ScrobbleRequest("Aphex Twin", "Xtal", "SAW"),
         }));
+        await host.DrainPipelineAsync();
 
         var stats = await host.Statistics.GetStatsAsync("alice", new ViewerContext(userId, false));
 

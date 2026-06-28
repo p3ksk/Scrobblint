@@ -51,16 +51,18 @@ public class ScrobbleServiceTests
     }
 
     [Fact]
-    public async Task Submit_enqueues_relay_job_for_forwarding()
+    public async Task Submit_enqueues_scrobble_to_pipeline()
     {
         using var host = new TestHost();
         var userId = await SeedUserAsync(host);
 
         await host.Scrobbles.SubmitAsync(userId, new ScrobbleRequest("Radiohead", "Idioteque", "Kid A"));
 
-        var job = Assert.Single(host.RelayQueue.Jobs);
-        Assert.Equal(userId, job.UserId);
-        Assert.Equal("Idioteque", Assert.Single(job.Tracks).Track);
+        var scrobble = Assert.Single(host.PipelineQueue.Jobs);
+        Assert.Equal(userId, scrobble.UserId);
+        Assert.Equal("Radiohead", scrobble.Artist);
+        Assert.Equal("Idioteque", scrobble.Track);
+        Assert.Equal("Kid A", scrobble.Album);
     }
 
     [Fact]
@@ -94,6 +96,7 @@ public class ScrobbleServiceTests
         var baseTime = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         for (var i = 0; i < 5; i++)
             await host.Scrobbles.SubmitAsync(userId, new ScrobbleRequest("Artist", $"Track{i}", null, baseTime.AddMinutes(i).ToUnixTimeSeconds()));
+        await host.DrainPipelineAsync();
 
         var owner = new ViewerContext(userId, false);
         var page1 = await host.Scrobbles.GetRecentAsync("alice", 1, 2, owner);

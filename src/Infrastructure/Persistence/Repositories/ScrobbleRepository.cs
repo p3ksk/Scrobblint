@@ -25,6 +25,9 @@ public sealed class ScrobbleRepository : IScrobbleRepository
     public async Task AddRangeAsync(IEnumerable<Scrobble> scrobbles, CancellationToken cancellationToken = default) =>
         await _context.Scrobbles.AddRangeAsync(scrobbles, cancellationToken);
 
+    public async Task<Scrobble?> GetByIdAsync(Guid scrobbleId, CancellationToken cancellationToken = default) =>
+        await _context.Scrobbles.FindAsync(new object[] { scrobbleId }, cancellationToken);
+
     public async Task<HashSet<string>> GetExistingKeysAsync(
         Guid userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default)
     {

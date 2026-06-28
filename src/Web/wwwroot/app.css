@@ -418,3 +418,13 @@ a.track { font-weight: 800; color: var(--ink); text-decoration: none; }
 a.track:hover { text-decoration: underline; text-underline-offset: 3px; }
 .rank-link-inline { font-weight: inherit; text-decoration: none; color: inherit; }
 .rank-link-inline:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* -------- log grid -------- */
+.badge-debug { background: color-mix(in srgb, var(--ink) 18%, transparent); color: var(--muted-ink); }
+.badge-warn  { background: var(--yellow); color: var(--on-accent-dark); }
+.log-time { font-family: var(--font-display); font-size: 0.78rem; white-space: nowrap; color: var(--muted-ink); }
+.log-cat  { font-family: var(--font-display); font-size: 0.78rem; white-space: nowrap; color: var(--muted-ink); }
+.log-msg  { font-family: var(--font-display); font-size: 0.8rem; word-break: break-word; max-width: 640px; }
+.log-row.log-warning td  { background: color-mix(in srgb, var(--yellow) 14%, transparent); }
+.log-row.log-error td,
+.log-row.log-critical td { background: color-mix(in srgb, var(--coral) 14%, transparent); }

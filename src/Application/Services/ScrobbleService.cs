@@ -2,6 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Common;
 using Scrobblint.Domain.Entities;
@@ -19,7 +20,7 @@ public sealed class ScrobbleService : IScrobbleService
     private readonly IUserSettingsRepository _settings;
     private readonly IExternalConnectionRepository _connections;
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IScrobbleRelayQueue _relayQueue;
+    private readonly IScrobblePipelineQueue _pipelineQueue;
     private readonly IEnumerable<IScrobbleRelay> _relays;
     private readonly IClock _clock;
     private readonly IMemoryCache _cache;
@@ -31,7 +32,7 @@ public sealed class ScrobbleService : IScrobbleService
         IUserSettingsRepository settings,
         IExternalConnectionRepository connections,
         IUnitOfWork unitOfWork,
-        IScrobbleRelayQueue relayQueue,
+        IScrobblePipelineQueue pipelineQueue,
         IEnumerable<IScrobbleRelay> relays,
         IClock clock,
         IMemoryCache cache,
@@ -42,7 +43,7 @@ public sealed class ScrobbleService : IScrobbleService
         _settings = settings;
         _connections = connections;
         _unitOfWork = unitOfWork;
-        _relayQueue = relayQueue;
+        _pipelineQueue = pipelineQueue;
         _relays = relays;
         _clock = clock;
         _cache = cache;
@@ -97,21 +98,24 @@ public sealed class ScrobbleService : IScrobbleService
         if (validation.HasErrors)
             return Result<ScrobbleSubmitResponse>.Invalid(validation.Build());
 
-        await _scrobbles.AddRangeAsync(entities, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // Queue scrobbles for processing pipeline: Stage 1 (Enrich) → Stage 2 (Save) → Stage 3 (Relay)
+        // This ensures:
+        // 1. Metadata is corrected/enriched via Last.fm before saving
+        // 2. Database stores canonical spellings and complete album info
+        // 3. External services receive high-quality data
+        // The pipeline runs asynchronously and never blocks submission.
+        foreach (var entity in entities)
+        {
+            _pipelineQueue.Enqueue(new PipelineScrobble(
+                userId,
+                entity.Artist,
+                entity.Track,
+                entity.Album,
+                entity.Timestamp,
+                now));
+        }
 
-        // Cached statistics are intentionally NOT invalidated per scrobble: over a large history the
-        // recompute is expensive, so we let the short cache TTL pick up new listens within a couple
-        // of minutes rather than recomputing on every submission.
-
-        // Forward to any external services the user has linked. This is best-effort and runs on a
-        // background dispatcher, so it never blocks or fails the local scrobble.
-        var relayTracks = entities
-            .Select(e => new RelayTrack(e.Artist, e.Track, e.Album, Mappers.ToUnix(e.Timestamp)))
-            .ToList();
-        _relayQueue.Enqueue(new ScrobbleRelayJob(userId, relayTracks));
-
-        _logger.LogInformation("Accepted {Count} scrobble(s) for user {UserId}", entities.Count, userId);
+        _logger.LogInformation("Accepted {Count} scrobble(s) for user {UserId}, queued for processing pipeline", entities.Count, userId);
         return Result<ScrobbleSubmitResponse>.Ok(new ScrobbleSubmitResponse(entities.Count));
     }
 

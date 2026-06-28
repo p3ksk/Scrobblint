@@ -11,8 +11,13 @@ using Scrobblint.Infrastructure;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Web.Authentication;
 using Scrobblint.Web.Components;
+using Scrobblint.Web.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+var logSink = new InMemoryLogSink();
+builder.Services.AddSingleton(logSink);
+builder.Logging.AddProvider(logSink);
 
 // --- Data protection: persist the key ring so antiforgery tokens (and the auth cookie)
 // survive process restarts. Without this the keys are ephemeral and tokens minted by a

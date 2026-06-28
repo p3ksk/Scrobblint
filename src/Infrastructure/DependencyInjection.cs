@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Abstractions.Security;
 using Scrobblint.Infrastructure.Configuration;
@@ -13,6 +14,7 @@ using Scrobblint.Infrastructure.Import;
 using Scrobblint.Infrastructure.Persistence;
 using Scrobblint.Infrastructure.Persistence.Providers;
 using Scrobblint.Infrastructure.Persistence.Repositories;
+using Scrobblint.Infrastructure.Pipeline;
 using Scrobblint.Infrastructure.Relay;
 using Scrobblint.Infrastructure.Security;
 using Scrobblint.Infrastructure.Time;
@@ -64,6 +66,7 @@ public static class DependencyInjection
         services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
         services.AddScoped<IExternalConnectionRepository, ExternalConnectionRepository>();
         services.AddScoped<IScrobbleImportRepository, ScrobbleImportRepository>();
+        services.AddScoped<ITrackInfoRepository, TrackInfoRepository>();
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
@@ -106,6 +109,18 @@ public static class DependencyInjection
         // --- History import (Last.fm) ---
         services.AddSingleton<IScrobbleImportQueue, ScrobbleImportQueue>();
         services.AddHostedService<ScrobbleImportWorker>();
+
+        // --- Scrobble processing pipeline (3 stages with channels) ---
+        // Stage 1: Enrichment (correct spelling, add album via Last.fm)
+        services.AddSingleton<IScrobblePipelineQueue, ScrobblePipelineQueue>();
+        services.AddHostedService<EnrichmentStageWorker>();
+
+        // Stage 2: Save (persist enriched data to database)
+        services.AddSingleton<ISaveQueue, SaveQueue>();
+        services.AddHostedService<SaveStageWorker>();
+
+        // Stage 3: Relay (forward to external services like Last.fm, ListenBrainz)
+        // ScrobbleRelayDispatcher already exists and consumes from IScrobbleRelayQueue
 
         return services;
     }

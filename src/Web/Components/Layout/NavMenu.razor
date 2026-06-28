@@ -11,6 +11,7 @@
                 <a href="/settings">Settings</a>
                 <AuthorizeView Roles="Admin" Context="admin">
                     <a href="/admin/status">Status</a>
+                    <a href="/admin/logs">Logs</a>
                     <a href="/admin/users">Users</a>
                 </AuthorizeView>
                 <span class="nav-user">@context.User.Identity?.Name</span>

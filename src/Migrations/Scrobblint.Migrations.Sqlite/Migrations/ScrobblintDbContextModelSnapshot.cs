@@ -154,6 +154,48 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.ToTable("ScrobbleImports", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.TrackInfo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtistKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CanonicalAlbum")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CanonicalArtist")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CanonicalTrack")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("FetchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Found")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TrackKey")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArtistKey", "TrackKey")
+                        .IsUnique();
+
+                    b.ToTable("TrackInfos", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")

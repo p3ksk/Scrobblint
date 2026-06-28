@@ -1,0 +1,111 @@
+@page "/admin/logs"
+@attribute [Authorize(Roles = "Admin")]
+@using Scrobblint.Web.Logging
+@inject InMemoryLogSink LogSink
+
+<PageTitle>Logs — Scrobblint</PageTitle>
+
+<h1>Logs</h1>
+
+<div class="settings-nav">
+    <a class="settings-tab @(_filterLevel is null ? "active" : "")" href="/admin/logs">All</a>
+    @foreach (var lvl in FilterLevels)
+    {
+        <a class="settings-tab @(_filterLevel == lvl ? "active" : "")"
+           href="/admin/logs?level=@lvl">@lvl</a>
+    }
+</div>
+
+<p class="muted">@_total entries (cap 500), newest first. Resets on restart.</p>
+
+@if (_total == 0)
+{
+    <p>No log entries captured yet.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Level</th>
+                <th>Source</th>
+                <th>Message</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _page)
+            {
+                <tr class="log-row log-@e.Level.ToString().ToLower()">
+                    <td class="log-time">@e.Timestamp.LocalDateTime.ToString("HH:mm:ss.fff")</td>
+                    <td><span class="badge @LevelBadge(e.Level)">@e.Level</span></td>
+                    <td class="log-cat">@ShortCategory(e.Category)</td>
+                    <td class="log-msg">@e.Message@(e.Exception is not null ? $" — {e.Exception}" : "")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pager">
+        @if (_currentPage > 1)
+        {
+            <a class="btn" href="@PageLink(_currentPage - 1)">← Previous</a>
+        }
+        <span class="muted">Page @_currentPage of @_totalPages (@_total total)</span>
+        @if (_currentPage < _totalPages)
+        {
+            <a class="btn" href="@PageLink(_currentPage + 1)">Next →</a>
+        }
+    </div>
+}
+
+@code {
+    private const int PageSize = 50;
+
+    private static readonly LogLevel[] FilterLevels =
+        [LogLevel.Debug, LogLevel.Information, LogLevel.Warning, LogLevel.Error, LogLevel.Critical];
+
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+    [SupplyParameterFromQuery(Name = "level")] private string? LevelParam { get; set; }
+
+    private LogEntry[] _page = [];
+    private int _total;
+    private int _currentPage;
+    private int _totalPages;
+    private LogLevel? _filterLevel;
+
+    protected override void OnInitialized()
+    {
+        if (Enum.TryParse<LogLevel>(LevelParam, ignoreCase: true, out var parsed))
+            _filterLevel = parsed;
+
+        var all = LogSink.GetEntries();
+
+        if (_filterLevel.HasValue)
+            all = all.Where(e => e.Level >= _filterLevel.Value).ToArray();
+
+        _total = all.Length;
+        _totalPages = Math.Max(1, (int)Math.Ceiling(_total / (double)PageSize));
+        _currentPage = Math.Clamp(Page ?? 1, 1, _totalPages);
+        _page = all.Skip((_currentPage - 1) * PageSize).Take(PageSize).ToArray();
+    }
+
+    private string PageLink(int page) =>
+        _filterLevel.HasValue
+            ? $"/admin/logs?level={_filterLevel}&page={page}"
+            : $"/admin/logs?page={page}";
+
+    private static string LevelBadge(LogLevel level) => level switch
+    {
+        LogLevel.Debug                          => "badge-debug",
+        LogLevel.Warning                        => "badge-warn",
+        LogLevel.Error or LogLevel.Critical     => "badge-danger",
+        _                                       => "badge-ok"
+    };
+
+    private static string ShortCategory(string cat)
+    {
+        var idx = cat.LastIndexOf('.');
+        return idx >= 0 ? cat[(idx + 1)..] : cat;
+    }
+}

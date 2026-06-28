@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
+using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
 using Scrobblint.Domain.Entities;
@@ -23,7 +24,7 @@ public sealed class TestHost : IDisposable
     private readonly SqliteConnection _connection;
     public ScrobblintDbContext Db { get; }
     public FakeClock Clock { get; } = new();
-    public RecordingRelayQueue RelayQueue { get; } = new();
+    public RecordingPipelineQueue PipelineQueue { get; } = new();
 
     public AuthService Auth { get; }
     public ScrobbleService Scrobbles { get; }
@@ -59,10 +60,34 @@ public sealed class TestHost : IDisposable
         var cache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
-        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, RelayQueue, new IScrobbleRelay[] { Lastfm }, Clock, cache, NullLogger<ScrobbleService>.Instance);
+        Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, PipelineQueue, new IScrobbleRelay[] { Lastfm }, Clock, cache, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
         Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, cache, NullLogger<ScrobbleImportService>.Instance);
+    }
+
+    /// <summary>
+    /// Persists everything currently queued in the pipeline, mimicking the save stage. The real
+    /// pipeline runs asynchronously in hosted workers; tests that read scrobbles back call this after
+    /// submitting to reach a deterministic, persisted state without spinning up the workers.
+    /// </summary>
+    public async Task DrainPipelineAsync()
+    {
+        foreach (var job in PipelineQueue.Jobs)
+        {
+            Db.Scrobbles.Add(new Scrobble
+            {
+                UserId = job.UserId,
+                Artist = job.Artist,
+                Track = job.Track,
+                Album = job.Album,
+                Timestamp = job.Timestamp,
+                CreatedAt = job.CreatedAt
+            });
+        }
+
+        PipelineQueue.Jobs.Clear();
+        await Db.SaveChangesAsync();
     }
 
     /// <summary>Inserts a Last.fm connection so an import can be started.</summary>
@@ -103,22 +128,22 @@ public sealed class FakeClock : IClock
     public DateTime UtcNow { get; set; } = new(2026, 1, 1, 12, 0, 0, DateTimeKind.Utc);
 }
 
-/// <summary>Captures relay jobs instead of forwarding, so tests can assert what would be relayed.</summary>
-public sealed class RecordingRelayQueue : IScrobbleRelayQueue
+/// <summary>Captures pipeline jobs instead of processing, so tests can assert what enters the pipeline.</summary>
+public sealed class RecordingPipelineQueue : IScrobblePipelineQueue
 {
-    public List<ScrobbleRelayJob> Jobs { get; } = new();
+    public List<PipelineScrobble> Jobs { get; } = new();
 
-    public bool Enqueue(ScrobbleRelayJob job)
+    public bool Enqueue(PipelineScrobble scrobble)
     {
-        Jobs.Add(job);
+        Jobs.Add(scrobble);
         return true;
     }
 
-    public async IAsyncEnumerable<ScrobbleRelayJob> DequeueAllAsync(
+    public async IAsyncEnumerable<PipelineScrobble> DequeueAllAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        foreach (var job in Jobs)
-            yield return job;
+        foreach (var scrobble in Jobs)
+            yield return scrobble;
         await Task.CompletedTask;
     }
 
@@ -138,6 +163,7 @@ public sealed class NoopImportQueue : IScrobbleImportQueue
 
     public int Count => 0;
 }
+
 
 /// <summary>Fake Last.fm relay returning canned history pages keyed by page number.</summary>
 public sealed class FakeLastfmRelay : ILastfmRelay

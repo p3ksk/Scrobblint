@@ -25,11 +25,31 @@
 </div>
 
 <div class="card">
-    <h2>Example: submit a scrobble</h2>
+    <h2>Example: submit a scrobble (native API)</h2>
     <pre class="code-block">curl -X POST @(_baseUrl)/api/scrobble \
   -H "Authorization: Token @(_token ?? "YOUR_TOKEN")" \
   -H "Content-Type: application/json" \
   -d '{"artist":"Radiohead","track":"Idioteque","album":"Kid A"}'</pre>
+</div>
+
+<div class="card">
+    <h2>Example: ListenBrainz-compatible API</h2>
+    <p>Point any ListenBrainz client at <code>@_baseUrl</code> to use it as a drop-in replacement.</p>
+    <pre class="code-block">curl -X POST @(_baseUrl)/1/submit-listens \
+  -H "Authorization: Token @(_token ?? "YOUR_TOKEN")" \
+  -H "Content-Type: application/json" \
+  -d '{
+  "listen_type": "single",
+  "payload": [{
+    "listened_at": 1706000000,
+    "track_metadata": {
+      "artist_name": "Radiohead",
+      "track_name": "Idioteque",
+      "release_name": "Kid A"
+    }
+  }]
+}'</pre>
+    <p class="muted">Supported listen types: <code>single</code>, <code>import</code>, <code>playing_now</code>. The <code>listened_at</code> field is a Unix timestamp (seconds); omit it for <code>playing_now</code>.</p>
 </div>
 
 @code {
