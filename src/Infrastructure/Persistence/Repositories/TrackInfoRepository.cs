@@ -26,4 +26,10 @@ public sealed class TrackInfoRepository : ITrackInfoRepository
 
     public async Task AddAsync(TrackInfo info, CancellationToken cancellationToken = default) =>
         await _context.TrackInfos.AddAsync(info, cancellationToken);
+
+    public async Task<int> CountAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.TrackInfos.AsNoTracking().CountAsync(cancellationToken);
+    }
 }

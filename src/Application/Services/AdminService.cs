@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 
 namespace Scrobblint.Application.Services;
@@ -14,8 +15,11 @@ public sealed record AdminStatus(
     int ThreadPoolThreads,
     int TotalUsers,
     int TotalScrobbles,
+    int EnrichQueueDepth,
+    int SaveQueueDepth,
     int RelayQueueDepth,
     int ImportQueueDepth,
+    int TrackInfoCacheEntries,
     int CoverArtEntries,
     long CoverArtCacheHits,
     long CoverArtCacheMisses);
@@ -34,6 +38,9 @@ public sealed class AdminService : IAdminService
 
     private readonly IScrobbleRepository _scrobbles;
     private readonly IUserRepository _users;
+    private readonly ITrackInfoRepository _trackInfo;
+    private readonly IScrobblePipelineQueue _enrichQueue;
+    private readonly ISaveQueue _saveQueue;
     private readonly IScrobbleRelayQueue _relayQueue;
     private readonly IScrobbleImportQueue _importQueue;
     private readonly ICoverArtProvider _coverArt;
@@ -41,12 +48,18 @@ public sealed class AdminService : IAdminService
     public AdminService(
         IScrobbleRepository scrobbles,
         IUserRepository users,
+        ITrackInfoRepository trackInfo,
+        IScrobblePipelineQueue enrichQueue,
+        ISaveQueue saveQueue,
         IScrobbleRelayQueue relayQueue,
         IScrobbleImportQueue importQueue,
         ICoverArtProvider coverArt)
     {
         _scrobbles = scrobbles;
         _users = users;
+        _trackInfo = trackInfo;
+        _enrichQueue = enrichQueue;
+        _saveQueue = saveQueue;
         _relayQueue = relayQueue;
         _importQueue = importQueue;
         _coverArt = coverArt;
@@ -59,6 +72,7 @@ public sealed class AdminService : IAdminService
 
         var totalScrobbles = await _scrobbles.CountAllAsync(ct);
         var totalUsers = await _users.CountAllAsync(ct);
+        var trackInfoEntries = await _trackInfo.CountAsync(ct);
 
         return new AdminStatus(
             StartedAt: StartedAt,
@@ -68,8 +82,11 @@ public sealed class AdminService : IAdminService
             ThreadPoolThreads: ThreadPool.ThreadCount,
             TotalUsers: totalUsers,
             TotalScrobbles: totalScrobbles,
+            EnrichQueueDepth: _enrichQueue.Count,
+            SaveQueueDepth: _saveQueue.Count,
             RelayQueueDepth: _relayQueue.Count,
             ImportQueueDepth: _importQueue.Count,
+            TrackInfoCacheEntries: trackInfoEntries,
             CoverArtEntries: _coverArt.CacheEntryCount,
             CoverArtCacheHits: _coverArt.CacheHits,
             CoverArtCacheMisses: _coverArt.CacheMisses

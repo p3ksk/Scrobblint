@@ -31,11 +31,20 @@ else
         <dt>Total scrobbles</dt>
         <dd>@_status.TotalScrobbles</dd>
 
-        <dt>Relay queue</dt>
+        <dt>Enrichment queue (stage 1)</dt>
+        <dd>@_status.EnrichQueueDepth</dd>
+
+        <dt>Save queue (stage 2)</dt>
+        <dd>@_status.SaveQueueDepth</dd>
+
+        <dt>Relay queue (stage 3)</dt>
         <dd>@_status.RelayQueueDepth</dd>
 
         <dt>Import queue</dt>
         <dd>@_status.ImportQueueDepth</dd>
+
+        <dt>Track info cache entries</dt>
+        <dd>@_status.TrackInfoCacheEntries</dd>
 
         <dt>Cover art cache entries</dt>
         <dd>@_status.CoverArtEntries</dd>

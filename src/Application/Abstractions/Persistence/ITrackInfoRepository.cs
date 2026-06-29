@@ -13,4 +13,7 @@ public interface ITrackInfoRepository
 
     /// <summary>Stages a new cache entry. Persisted via the unit of work.</summary>
     Task AddAsync(TrackInfo info, CancellationToken cancellationToken = default);
+
+    /// <summary>Total number of cached lookups (both found and negative).</summary>
+    Task<int> CountAsync(CancellationToken cancellationToken = default);
 }

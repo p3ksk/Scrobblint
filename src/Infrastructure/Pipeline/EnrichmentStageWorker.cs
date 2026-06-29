@@ -104,18 +104,13 @@ public sealed class EnrichmentStageWorker : BackgroundService
                 enrichedTrack = metadata.Track;
             }
 
-            if (!string.IsNullOrWhiteSpace(metadata.Album))
+            // Only fill in album from Last.fm when the client didn't supply one.
+            // Last.fm maps every track to a single canonical release, but the user's player
+            // knows which album they're actually listening to — don't clobber that.
+            if (!string.IsNullOrWhiteSpace(metadata.Album) && string.IsNullOrWhiteSpace(scrobble.Album))
             {
-                if (string.IsNullOrWhiteSpace(scrobble.Album))
-                {
-                    changes.Add($"album: (empty) -> '{metadata.Album}'");
-                    enrichedAlbum = metadata.Album;
-                }
-                else if (metadata.Album != scrobble.Album)
-                {
-                    changes.Add($"album: '{scrobble.Album}' -> '{metadata.Album}'");
-                    enrichedAlbum = metadata.Album;
-                }
+                changes.Add($"album: (empty) -> '{metadata.Album}'");
+                enrichedAlbum = metadata.Album;
             }
 
             if (changes.Count > 0)
