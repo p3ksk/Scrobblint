@@ -153,6 +153,29 @@ code {
 }
 .inline-form { display: inline; margin: 0; }
 
+/* Hamburger toggle — hidden on desktop, revealed by the mobile breakpoint. */
+.nav-toggle { display: none; }
+.nav-burger {
+    display: none;
+    cursor: pointer;
+    width: 44px; height: 44px;
+    border: var(--bd); background: var(--panel);
+    box-shadow: var(--shadow-sm);
+    flex: none;
+    position: relative;
+}
+.nav-burger span {
+    display: block;
+    position: absolute;
+    left: 9px; right: 9px;
+    height: 3px;
+    background: var(--ink);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.nav-burger span:nth-child(1) { top: 12px; }
+.nav-burger span:nth-child(2) { top: 20px; }
+.nav-burger span:nth-child(3) { top: 28px; }
+
 .content { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 2rem 1.5rem; }
 
 .footer {
@@ -259,11 +282,14 @@ form input:focus, form select:focus {
 
 /* -------- lists -------- */
 .scrobble-list { list-style: none; margin: 0; padding: 0; }
-.scrobble-list li { display: flex; align-items: baseline; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 2px dashed var(--ink); }
+.scrobble-list li { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 2px dashed var(--ink); }
 .scrobble-list li:last-child { border-bottom: none; }
+.scrobble-info { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem; }
+.scrobble-info .track,
+.scrobble-info a.track { overflow-wrap: anywhere; }
 .scrobble-list .track, .track-line .track { font-weight: 800; }
 .scrobble-list .artist { color: var(--muted-ink); font-weight: 600; }
-.scrobble-list .time { margin-left: auto; font-family: var(--font-display); font-size: 0.78rem; color: var(--muted-ink); }
+.scrobble-list .time { margin-left: auto; font-family: var(--font-display); font-size: 0.78rem; color: var(--muted-ink); flex: none; }
 
 .rank-list { margin: 0; padding: 0; list-style: none; counter-reset: rank; }
 .rank-list li {
@@ -286,6 +312,7 @@ form input:focus, form select:focus {
 
 /* -------- table -------- */
 .table { width: 100%; border-collapse: separate; border-spacing: 0; border: var(--bd); }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .table th {
     text-align: left; padding: 0.7rem 0.7rem;
     background: var(--ink); color: var(--paper);
@@ -429,3 +456,65 @@ a.track:hover { text-decoration: underline; text-underline-offset: 3px; }
 .log-row.log-warning td  { background: color-mix(in srgb, var(--yellow) 14%, transparent); }
 .log-row.log-error td,
 .log-row.log-critical td { background: color-mix(in srgb, var(--coral) 14%, transparent); }
+
+/* ============================================================================
+   Mobile layout — <= 768px
+   Navbar collapses into a hamburger menu (CSS-only checkbox hack, no JS).
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* Reveal the burger, hide the link row until toggled. */
+    .nav-burger { display: block; }
+    .nav-links {
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        order: 3; /* sit below the brand/burger row */
+    }
+    .nav-links a,
+    .nav-links .nav-user,
+    .nav-links .inline-form { width: 100%; }
+    .nav-links a { text-align: center; padding: 0.55rem 0.6rem; }
+    .nav-links .inline-form .btn-link { width: 100%; display: block; text-align: center; }
+
+    /* Checkbox hack: show the menu when the burger is checked. */
+    .nav-toggle:checked ~ .nav-links { display: flex; }
+    /* Animate the burger into an X when open. */
+    .nav-toggle:checked ~ .nav-burger span:nth-child(1) { top: 20px; transform: rotate(45deg); }
+    .nav-toggle:checked ~ .nav-burger span:nth-child(2) { opacity: 0; }
+    .nav-toggle:checked ~ .nav-burger span:nth-child(3) { top: 20px; transform: rotate(-45deg); }
+
+    /* Tighter content padding on small screens. */
+    .content { padding: 1.25rem 1rem; }
+    .navbar { padding: 0.85rem 1rem; }
+
+    /* Cards shed some padding. */
+    .card { padding: 1.1rem 1.1rem; margin-bottom: 1.25rem; }
+
+    /* Bar chart: drop the fixed label column so the track fills the row. */
+    .bar-row { grid-template-columns: 1fr 40px; gap: 0.5rem; }
+    .bar-label { grid-column: 1 / -1; grid-row: 1; }
+    .bar-track { grid-column: 1; grid-row: 2; }
+    .bar-value { grid-column: 2; grid-row: 2; }
+
+    /* Now-playing card stacks art above text. */
+    .now-playing-card { flex-direction: column; align-items: flex-start; gap: 0.85rem; }
+
+    /* Search form stacks vertically and lets the input fill width. */
+    .search-form { flex-direction: column; align-items: stretch; }
+    .search-form input { max-width: none; margin-top: 0; }
+
+    /* Tables scroll horizontally inside their wrapper rather than overflowing. */
+    .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .table-scroll .table { min-width: 540px; }
+
+    /* Detail lists (admin) stack the dt above the dd. */
+    .detail-list { grid-template-columns: 1fr; gap: 0.1rem 0; }
+    .detail-list dd { margin-bottom: 0.6rem; }
+
+    /* Hero actions and pager stay wrap-friendly (already are) — just trim spacing. */
+    .hero { padding: 1rem 0.5rem 1.5rem; }
+    .actions { gap: 0.6rem; }
+}

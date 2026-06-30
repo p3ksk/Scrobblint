@@ -71,11 +71,13 @@ else
                             {
                                 <ArtPlaceholder Size="sm" />
                             }
-                            <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
-                            @if (s.Album is not null)
-                            {
-                                <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>
-                            }
+                            <div class="scrobble-info">
+                                <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
+                                @if (s.Album is not null)
+                                {
+                                    <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>
+                                }
+                            </div>
                             <span class="time">@Format.Ago(s.Timestamp)</span>
                         </li>
                     }

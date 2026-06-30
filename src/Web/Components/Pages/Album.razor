@@ -64,7 +64,9 @@ else
                     @foreach (var s in _recentPage.Items)
                     {
                         <li>
-                            <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
+                            <div class="scrobble-info">
+                                <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
+                            </div>
                             <span class="time">@Format.Ago(s.Timestamp)</span>
                         </li>
                     }

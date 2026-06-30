@@ -23,6 +23,7 @@ else if (_page.TotalCount == 0)
 else
 {
     <div class="card">
+        <div class="table-scroll">
         <table class="table">
             <thead>
                 <tr><th></th><th>Track</th><th>Artist</th><th>Album</th><th>When</th><th></th></tr>
@@ -60,6 +61,7 @@ else
                 }
             </tbody>
         </table>
+        </div>
 
         <div class="pager">
             @if (_page.HasPrevious)

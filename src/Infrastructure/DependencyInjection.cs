@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Options;
+using Polly;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
@@ -75,7 +77,7 @@ public static class DependencyInjection
         // --- Scrobble relaying to external services (Last.fm, ListenBrainz) ---
         services.AddHttpClient(RelayHttpClient.Name, client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(20);
+            client.Timeout = Timeout.InfiniteTimeSpan; // overall timeout governed by the resilience handler below
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Scrobblint/1.0 (+https://github.com/scrobblint)");
         })
         .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
@@ -85,6 +87,19 @@ public static class DependencyInjection
             {
                 EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
             }
+        })
+        .AddResilienceHandler("relay-retry", pipelineBuilder =>
+        {
+            pipelineBuilder.AddTimeout(new TimeSpan(0, 0, 20)); // per-attempt timeout (matches the previous HttpClient.Timeout)
+            pipelineBuilder.AddRetry(new HttpRetryStrategyOptions
+            {
+                Delay = TimeSpan.FromSeconds(2),
+                MaxDelay = TimeSpan.FromSeconds(30),
+                MaxRetryAttempts = 3,
+                UseJitter = true,
+                BackoffType = DelayBackoffType.Exponential
+            });
+            pipelineBuilder.AddTimeout(new TimeSpan(0, 2, 0)); // overall pipeline timeout across all retry attempts
         });
 
         services.AddSingleton<ListenBrainzRelay>();
