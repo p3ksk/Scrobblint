@@ -20,6 +20,10 @@ else
             {
                 <img src="@_albumCover" class="art-thumb art-thumb-lg" alt="" />
             }
+            else
+            {
+                <ArtPlaceholder Size="lg" />
+            }
             <div>
                 <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
                 @if (_detail.FirstPlayed is not null)

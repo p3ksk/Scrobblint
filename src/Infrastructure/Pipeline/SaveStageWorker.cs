@@ -59,7 +59,7 @@ public sealed class SaveStageWorker : BackgroundService
                     await repository.AddAsync(entity, stoppingToken);
                     await unitOfWork.SaveChangesAsync(stoppingToken);
 
-                    _logger.LogDebug("Saved scrobble to DB: {Artist} - {Track}", scrobble.Artist, scrobble.Track);
+                    _logger.LogDebug("Saved scrobble to DB: {Artist} - {Album} - {Track}", scrobble.Artist, scrobble.Album ?? "(empty)", scrobble.Track);
                 }
 
                 // Forward to relay queue (Stage 3)

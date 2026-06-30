@@ -34,9 +34,13 @@ else
                 @foreach (var s in _recentPage.Items)
                 {
                     <li>
-                        @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                        @if (_recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
                         {
                             <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
+                        else
+                        {
+                            <ArtPlaceholder Size="sm" />
                         }
                         <span class="track">@s.Track</span>
                         @if (s.Album is not null)

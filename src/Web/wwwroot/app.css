@@ -392,6 +392,7 @@ form input:focus, form select:focus {
 .art-thumb-sm { width: 42px; height: 42px; }
 .art-thumb-md { width: 64px; height: 64px; }
 .art-thumb-lg { width: 96px; height: 96px; }
+.art-placeholder { overflow: hidden; }
 
 .now-playing-card { display: flex; align-items: center; gap: 1.25rem; }
 

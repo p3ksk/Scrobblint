@@ -32,9 +32,13 @@ else
                 {
                     <tr>
                         <td class="art-cell">
-                            @if (s.Album is not null && _albumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            @if (_albumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
                             {
                                 <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            else
+                            {
+                                <ArtPlaceholder Size="sm" />
                             }
                         </td>
                         <td><a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)">@s.Track</a></td>

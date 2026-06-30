@@ -29,6 +29,10 @@ else
                 {
                     <img src="@_nowPlayingImage" class="art-thumb art-thumb-lg" alt="" />
                 }
+                else
+                {
+                    <ArtPlaceholder Size="lg" />
+                }
                 <div>
                     <p class="track-line"><span class="track">@_nowPlaying.Track</span> — <a href="/artist/@Uri.EscapeDataString(_nowPlaying.Artist)" class="artist">@_nowPlaying.Artist</a></p>
                     @if (_nowPlaying.Album is not null)
@@ -49,9 +53,13 @@ else
                     @foreach (var s in _recent.Items)
                     {
                         <li>
-                            @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            @if (_recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
                             {
                                 <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            else
+                            {
+                                <ArtPlaceholder Size="sm" />
                             }
                             <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
                             <a href="/artist/@Uri.EscapeDataString(s.Artist)" class="artist">@s.Artist</a>
@@ -78,6 +86,10 @@ else
                             @if (_artistImages.TryGetValue(a.Artist, out var imgUrl) && imgUrl is not null)
                             {
                                 <img src="@imgUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            else
+                            {
+                                <ArtPlaceholder Size="sm" />
                             }
                             <a href="/artist/@Uri.EscapeDataString(a.Artist)" class="rank-link">@a.Artist</a><span class="count">@a.Count</span>
                         </li>

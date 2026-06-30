@@ -19,6 +19,10 @@ else
             {
                 <img src="@_artistImage" class="art-thumb art-thumb-lg" alt="" />
             }
+            else
+            {
+                <ArtPlaceholder Size="lg" />
+            }
             <div>
                 <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
                 @if (_detail.FirstPlayed is not null)
@@ -59,9 +63,13 @@ else
                     @foreach (var s in _recentPage.Items)
                     {
                         <li>
-                            @if (s.Album is not null && _recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
+                            @if (_recentAlbumCovers.TryGetValue(s.Id, out var coverUrl) && coverUrl is not null)
                             {
                                 <img src="@coverUrl" class="art-thumb art-thumb-sm" alt="" />
+                            }
+                            else
+                            {
+                                <ArtPlaceholder Size="sm" />
                             }
                             <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
                             @if (s.Album is not null)

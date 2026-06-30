@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions.Pipeline;
 
 namespace Scrobblint.Infrastructure.Pipeline;
@@ -8,15 +9,21 @@ namespace Scrobblint.Infrastructure.Pipeline;
 /// </summary>
 public sealed class ScrobblePipelineQueue : IScrobblePipelineQueue
 {
-    private readonly Channel<PipelineScrobble> _channel =
-        Channel.CreateUnbounded<PipelineScrobble>(new UnboundedChannelOptions
+    private readonly ILogger<ScrobblePipelineQueue> _logger;
+    private readonly Channel<PipelineScrobble> _channel;
+
+    private int _count;
+    
+    public ScrobblePipelineQueue(ILogger<ScrobblePipelineQueue> logger)
+    {
+        _logger = logger;
+        _channel = Channel.CreateUnbounded<PipelineScrobble>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = false
         });
-
-    private int _count;
-
+    }
+    
     public bool Enqueue(PipelineScrobble scrobble)
     {
         if (_channel.Writer.TryWrite(scrobble))
@@ -33,6 +40,7 @@ public sealed class ScrobblePipelineQueue : IScrobblePipelineQueue
         await foreach (var scrobble in _channel.Reader.ReadAllAsync(cancellationToken))
         {
             Interlocked.Decrement(ref _count);
+            _logger.LogDebug("Scrobble {Artist} - {Album} - {Track} of user {User} processing started.", scrobble.Artist, scrobble.Album, scrobble.Track, scrobble.UserId);
             yield return scrobble;
         }
     }
