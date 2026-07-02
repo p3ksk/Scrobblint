@@ -28,3 +28,16 @@ public sealed record StatsResponse(
     IReadOnlyList<ChartPoint> HourlyChart,
     IReadOnlyList<ChartPoint> DayOfWeekChart,
     IReadOnlyList<ChartPoint> YearlyChart);
+
+/// <summary>
+/// Site-wide aggregated statistics across all users. Restricted to totals + top-N lists
+/// (no time-series charts, since they have little meaning across different listening eras).
+/// </summary>
+public sealed record GlobalStatsResponse(
+    int TotalScrobbles,
+    int TotalUsers,
+    int UniqueArtists,
+    int UniqueTracks,
+    IReadOnlyList<ArtistCount> TopArtists,
+    IReadOnlyList<AlbumCount> TopAlbums,
+    IReadOnlyList<TrackCount> TopTracks);

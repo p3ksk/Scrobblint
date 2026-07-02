@@ -164,6 +164,15 @@ public static class UiFormEndpoints
             return Results.LocalRedirect($"/admin/users/{id}?tokenReset=1");
         });
 
+        admin.MapPost("/{id:guid}/delete", async (Guid id, HttpContext ctx, IAntiforgery af, IUserService users) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var result = await users.DeleteUserAsync(id, ctx.RequestAborted);
+            return result.Succeeded
+                ? Results.LocalRedirect("/admin/users?deleted=1")
+                : Results.LocalRedirect($"/admin/users/{id}?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+        });
+
         return app;
     }
 

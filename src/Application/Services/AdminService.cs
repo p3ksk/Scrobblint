@@ -3,10 +3,10 @@ using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
+using Scrobblint.Domain.Enums;
 
 namespace Scrobblint.Application.Services;
 
-/// <summary>Summary of the application runtime for the admin status page.</summary>
 public sealed record AdminStatus(
     DateTime StartedAt,
     long UptimeSeconds,
@@ -22,11 +22,10 @@ public sealed record AdminStatus(
     int TrackInfoCacheEntries,
     int CoverArtEntries,
     long CoverArtCacheHits,
-    long CoverArtCacheMisses);
+    long CoverArtCacheMisses,
+    int PendingFailedRelays,
+    int PermanentlyFailedRelays);
 
-/// <summary>
-/// Service that collects process, application, and cache metrics for the admin dashboard.
-/// </summary>
 public interface IAdminService
 {
     Task<AdminStatus> GetStatusAsync(CancellationToken ct = default);
@@ -44,6 +43,7 @@ public sealed class AdminService : IAdminService
     private readonly IScrobbleRelayQueue _relayQueue;
     private readonly IScrobbleImportQueue _importQueue;
     private readonly ICoverArtProvider _coverArt;
+    private readonly IFailedRelayRepository _failedRelays;
 
     public AdminService(
         IScrobbleRepository scrobbles,
@@ -53,7 +53,8 @@ public sealed class AdminService : IAdminService
         ISaveQueue saveQueue,
         IScrobbleRelayQueue relayQueue,
         IScrobbleImportQueue importQueue,
-        ICoverArtProvider coverArt)
+        ICoverArtProvider coverArt,
+        IFailedRelayRepository failedRelays)
     {
         _scrobbles = scrobbles;
         _users = users;
@@ -63,6 +64,7 @@ public sealed class AdminService : IAdminService
         _relayQueue = relayQueue;
         _importQueue = importQueue;
         _coverArt = coverArt;
+        _failedRelays = failedRelays;
     }
 
     public async Task<AdminStatus> GetStatusAsync(CancellationToken ct = default)
@@ -73,6 +75,8 @@ public sealed class AdminService : IAdminService
         var totalScrobbles = await _scrobbles.CountAllAsync(ct);
         var totalUsers = await _users.CountAllAsync(ct);
         var trackInfoEntries = await _trackInfo.CountAsync(ct);
+        var pendingFailed = await _failedRelays.CountByStatusAsync(RelayStatus.Pending, ct);
+        var permanentlyFailed = await _failedRelays.CountByStatusAsync(RelayStatus.Failed, ct);
 
         return new AdminStatus(
             StartedAt: StartedAt,
@@ -89,7 +93,9 @@ public sealed class AdminService : IAdminService
             TrackInfoCacheEntries: trackInfoEntries,
             CoverArtEntries: _coverArt.CacheEntryCount,
             CoverArtCacheHits: _coverArt.CacheHits,
-            CoverArtCacheMisses: _coverArt.CacheMisses
+            CoverArtCacheMisses: _coverArt.CacheMisses,
+            PendingFailedRelays: pendingFailed,
+            PermanentlyFailedRelays: permanentlyFailed
         );
     }
 }

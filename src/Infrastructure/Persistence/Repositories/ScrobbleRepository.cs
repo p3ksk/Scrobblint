@@ -235,6 +235,57 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return await db.Scrobbles.AsNoTracking().CountAsync(ct);
     }
 
+    public async Task<int> CountDistinctArtistsGlobalAsync(CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Select(s => s.Artist).Distinct().CountAsync(ct);
+    }
+
+    public async Task<int> CountDistinctTracksGlobalAsync(CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Select(s => new { s.Artist, s.Track }).Distinct().CountAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<ArtistCount>> GetTopArtistsGlobalAsync(int limit, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
+            .GroupBy(s => s.Artist)
+            .Select(g => new { Artist = g.Key, Count = g.Count() })
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Artist)
+            .Take(limit)
+            .ToListAsync(ct);
+        return rows.Select(r => new ArtistCount(r.Artist, r.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<AlbumCount>> GetTopAlbumsGlobalAsync(int limit, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
+            .Where(s => s.Album != null && s.Album != "")
+            .GroupBy(s => new { s.Artist, Album = s.Album! })
+            .Select(g => new { g.Key.Artist, g.Key.Album, Count = g.Count() })
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Album)
+            .Take(limit)
+            .ToListAsync(ct);
+        return rows.Select(r => new AlbumCount(r.Artist, r.Album, r.Count)).ToList();
+    }
+
+    public async Task<IReadOnlyList<TrackCount>> GetTopTracksGlobalAsync(int limit, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await db.Scrobbles.AsNoTracking()
+            .GroupBy(s => new { s.Artist, s.Track })
+            .Select(g => new { g.Key.Artist, g.Key.Track, Count = g.Count() })
+            .OrderByDescending(x => x.Count).ThenBy(x => x.Track)
+            .Take(limit)
+            .ToListAsync(ct);
+        return rows.Select(r => new TrackCount(r.Artist, r.Track, r.Count)).ToList();
+    }
+
     public async Task<int> CountByAlbumAsync(Guid userId, string artist, string album, CancellationToken ct)
     {
         await using var db = _factory.CreateDbContext();

@@ -53,4 +53,19 @@ public sealed class StatisticsService : IStatisticsService
             total, uniqueArtists, uniqueTracks, uniqueAlbums,
             topArtists, topAlbums, topTracks, monthly, daily, hourly, dayOfWeek, yearly));
     }
+
+    public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var total = await _scrobbles.CountAllAsync(cancellationToken);
+        var totalUsers = await _users.CountAllAsync(cancellationToken);
+        var uniqueArtists = await _scrobbles.CountDistinctArtistsGlobalAsync(cancellationToken);
+        var uniqueTracks = await _scrobbles.CountDistinctTracksGlobalAsync(cancellationToken);
+        var topArtists = await _scrobbles.GetTopArtistsGlobalAsync(AppConstants.TopListSize, cancellationToken);
+        var topAlbums = await _scrobbles.GetTopAlbumsGlobalAsync(AppConstants.TopListSize, cancellationToken);
+        var topTracks = await _scrobbles.GetTopTracksGlobalAsync(AppConstants.TopListSize, cancellationToken);
+
+        return Result<GlobalStatsResponse>.Ok(new GlobalStatsResponse(
+            total, totalUsers, uniqueArtists, uniqueTracks,
+            topArtists, topAlbums, topTracks));
+    }
 }

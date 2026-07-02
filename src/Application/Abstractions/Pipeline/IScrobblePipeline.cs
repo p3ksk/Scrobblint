@@ -26,6 +26,9 @@ public interface IScrobblePipelineQueue
 
     /// <summary>Approximate number of scrobbles currently queued.</summary>
     int Count { get; }
+
+    /// <summary>Signals the queue that no more items will be enqueued so consumers can drain and exit.</summary>
+    void Complete();
 }
 
 /// <summary>
@@ -41,4 +44,7 @@ public interface ISaveQueue
 
     /// <summary>Approximate number of scrobbles currently queued.</summary>
     int Count { get; }
+
+    /// <summary>Signals the queue that no more items will be enqueued so consumers can drain and exit.</summary>
+    void Complete();
 }

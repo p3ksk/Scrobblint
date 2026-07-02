@@ -1,0 +1,68 @@
+@page "/stats/global"
+@inject IStatisticsService Stats
+@inject Scrobblint.Application.Abstractions.CoverArt.ICoverArtProvider CoverArt
+
+<PageTitle>Global Statistics — Scrobblint</PageTitle>
+
+<h1>Global statistics</h1>
+
+@if (_stats is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="stat-grid">
+        <div class="stat-card"><span class="stat-num">@_stats.TotalScrobbles</span><span class="stat-label">Total scrobbles</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.TotalUsers</span><span class="stat-label">Users</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueArtists</span><span class="stat-label">Unique artists</span></div>
+        <div class="stat-card"><span class="stat-num">@_stats.UniqueTracks</span><span class="stat-label">Unique tracks</span></div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h2>Top artists</h2>
+            <ol class="rank-list">
+                @foreach (var a in _stats.TopArtists)
+                {
+                    <li>
+                        @if (_artistImages.TryGetValue(a.Artist, out var imgUrl) && imgUrl is not null)
+                        {
+                            <img src="@imgUrl" class="art-thumb art-thumb-sm" alt="" />
+                        }
+                        <a href="/artist/@Uri.EscapeDataString(a.Artist)" class="rank-link">@a.Artist</a><span class="count">@a.Count</span>
+                    </li>
+                }
+            </ol>
+        </div>
+        <div class="card">
+            <h2>Top tracks</h2>
+            <ol class="rank-list">
+                @foreach (var t in _stats.TopTracks)
+                {
+                    <li><span><a href="/track/@Uri.EscapeDataString(t.Artist)/@Uri.EscapeDataString(t.Track)" class="rank-link-inline">@t.Track</a> <span class="muted">— @t.Artist</span></span><span class="count">@t.Count</span></li>
+                }
+            </ol>
+        </div>
+    </div>
+}
+
+@code {
+    private GlobalStatsResponse? _stats;
+    private Dictionary<string, string?> _artistImages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Stats.GetGlobalStatsAsync();
+        if (result.Succeeded) _stats = result.Value;
+        if (_stats is null) return;
+
+        if (_stats.TopArtists is { Count: > 0 } topArtists)
+        {
+            var tasks = topArtists.ToDictionary(a => a.Artist, a => CoverArt.GetArtistImageUrlAsync(a.Artist));
+            await Task.WhenAll(tasks.Values);
+            foreach (var kvp in tasks)
+                _artistImages[kvp.Key] = kvp.Value.Result;
+        }
+    }
+}

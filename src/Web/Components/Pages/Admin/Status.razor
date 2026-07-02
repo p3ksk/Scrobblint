@@ -1,9 +1,10 @@
-@page "/admin/status"
+@page "/admin"
 @attribute [Authorize(Roles = "Admin")]
 @inject IAdminService Admin
 
 <PageTitle>Status — Scrobblint</PageTitle>
 
+<AdminNav />
 <h1>Status</h1>
 
 @if (_status is null)
@@ -12,7 +13,8 @@
 }
 else
 {
-    <div class="detail-list" style="max-width:600px">
+    <div class="card narrow">
+        <div class="detail-list">
         <dt>Uptime</dt>
         <dd>@FormatUptime(_status.UptimeSeconds)</dd>
 
@@ -54,6 +56,11 @@ else
 
         <dt>Cover art cache misses</dt>
         <dd>@_status.CoverArtCacheMisses</dd>
+        <dt>Pending retry</dt>
+        <dd>@_status.PendingFailedRelays</dd>
+        <dt>Permanently failed</dt>
+        <dd>@_status.PermanentlyFailedRelays</dd>
+    </div>
     </div>
 }
 

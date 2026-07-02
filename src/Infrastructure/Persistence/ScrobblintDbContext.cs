@@ -19,6 +19,7 @@ public class ScrobblintDbContext : DbContext
     public DbSet<ExternalConnection> ExternalConnections => Set<ExternalConnection>();
     public DbSet<ScrobbleImport> ScrobbleImports => Set<ScrobbleImport>();
     public DbSet<TrackInfo> TrackInfos => Set<TrackInfo>();
+    public DbSet<FailedRelay> FailedRelays => Set<FailedRelay>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

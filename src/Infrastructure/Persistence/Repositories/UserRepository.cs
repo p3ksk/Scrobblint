@@ -73,6 +73,8 @@ public sealed class UserRepository : IUserRepository
 
     public void Update(User user) => _context.Users.Update(user);
 
+    public void Remove(User user) => _context.Users.Remove(user);
+
     public async Task<(IReadOnlyList<AdminUserListItem> Items, int TotalCount)> GetAdminListAsync(
         int page, int pageSize, string? search, CancellationToken cancellationToken = default)
     {

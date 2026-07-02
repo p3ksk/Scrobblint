@@ -56,6 +56,12 @@ else
                 <AntiforgeryToken />
                 <button class="btn" type="submit">Regenerate API token</button>
             </form>
+
+            <form method="post" action="/admin/users/@_user.Id/delete"
+                  onsubmit="return confirm('Delete @_user.Username and all their scrobbles, settings, and connections? This cannot be undone.');">
+                <AntiforgeryToken />
+                <button class="btn btn-danger" type="submit">Delete user</button>
+            </form>
         </div>
     </div>
 }

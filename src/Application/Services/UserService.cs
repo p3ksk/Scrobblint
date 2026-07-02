@@ -157,4 +157,17 @@ public sealed class UserService : IUserService
         _logger.LogInformation("Admin regenerated API token for user {UserId}", userId);
         return Result<TokenResponse>.Ok(new TokenResponse(user.ApiToken));
     }
+
+    public async Task<Result> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _users.GetByIdAsync(userId, cancellationToken);
+        if (user is null)
+            return Result.NotFound("User not found.");
+
+        _users.Remove(user);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Admin deleted user {UserId} ({Username}) and all their data", userId, user.Username);
+        return Result.Ok();
+    }
 }

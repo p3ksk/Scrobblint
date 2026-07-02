@@ -38,4 +38,6 @@ public sealed class SaveQueue : ISaveQueue
     }
 
     public int Count => _count;
+
+    public void Complete() => _channel.Writer.Complete();
 }

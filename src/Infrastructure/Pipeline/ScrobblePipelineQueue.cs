@@ -46,4 +46,6 @@ public sealed class ScrobblePipelineQueue : IScrobblePipelineQueue
     }
 
     public int Count => _count;
+
+    public void Complete() => _channel.Writer.Complete();
 }

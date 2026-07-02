@@ -97,6 +97,21 @@ public interface IScrobbleRepository
     /// <summary>Total scrobble count across all users.</summary>
     Task<int> CountAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Total distinct artists across all users.</summary>
+    Task<int> CountDistinctArtistsGlobalAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Total distinct tracks across all users.</summary>
+    Task<int> CountDistinctTracksGlobalAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Top artists across all users.</summary>
+    Task<IReadOnlyList<ArtistCount>> GetTopArtistsGlobalAsync(int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>Top albums across all users.</summary>
+    Task<IReadOnlyList<AlbumCount>> GetTopAlbumsGlobalAsync(int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>Top tracks across all users.</summary>
+    Task<IReadOnlyList<TrackCount>> GetTopTracksGlobalAsync(int limit, CancellationToken cancellationToken = default);
+
     /// <summary>Total scrobble count for a specific track (artist-scoped).</summary>
     Task<int> CountByTrackAsync(Guid userId, string artist, string track, CancellationToken cancellationToken = default);
 

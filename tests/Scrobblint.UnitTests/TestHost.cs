@@ -148,6 +148,8 @@ public sealed class RecordingPipelineQueue : IScrobblePipelineQueue
     }
 
     public int Count => Jobs.Count;
+
+    public void Complete() { }
 }
 
 public sealed class NoopImportQueue : IScrobbleImportQueue

@@ -54,6 +54,14 @@ public static class AdminEndpoints
         .WithName("AdminRegenerateToken")
         .WithSummary("Regenerate a user's API token.");
 
+        group.MapDelete("/{id:guid}", async (Guid id, IUserService users, CancellationToken ct) =>
+        {
+            var result = await users.DeleteUserAsync(id, ct);
+            return result.ToHttpResult(StatusCodes.Status204NoContent);
+        })
+        .WithName("AdminDeleteUser")
+        .WithSummary("Permanently delete a user and all their data.");
+
         return api;
     }
 }

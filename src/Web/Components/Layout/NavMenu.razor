@@ -12,11 +12,10 @@
                 <a href="/dashboard">Dashboard</a>
                 <a href="/recent">Recent</a>
                 <a href="/stats">Statistics</a>
+                <a href="/stats/global">Global</a>
                 <a href="/settings">Settings</a>
                 <AuthorizeView Roles="Admin" Context="admin">
-                    <a href="/admin/status">Status</a>
-                    <a href="/admin/logs">Logs</a>
-                    <a href="/admin/users">Users</a>
+                    <a href="/admin">Administration</a>
                 </AuthorizeView>
                 <span class="nav-user">@context.User.Identity?.Name</span>
                 <form method="post" action="/account/logout" class="inline-form">

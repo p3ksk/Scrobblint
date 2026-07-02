@@ -15,7 +15,7 @@ public static class UserEndpoints
             string username, ClaimsPrincipal user, IUserService users, CancellationToken ct) =>
         {
             var result = await users.GetProfileAsync(username, ViewerContextFactory.From(user), ct);
-            return result.ToHttpResult();
+            return result.ToHttpResult(cacheControl: "public, max-age=120");
         })
         .AllowAnonymous()
         .WithName("GetUserProfile")
@@ -46,6 +46,20 @@ public static class UserEndpoints
         .AllowAnonymous()
         .WithName("GetUserStats")
         .WithSummary("Listening statistics for a user.");
+
+        return api;
+    }
+
+    public static RouteGroupBuilder MapGlobalStatsEndpoint(this RouteGroupBuilder api)
+    {
+        api.MapGet("/stats", async (IStatisticsService stats, CancellationToken ct) =>
+        {
+            var result = await stats.GetGlobalStatsAsync(ct);
+            return result.ToHttpResult(200, "public, max-age=120");
+        })
+        .AllowAnonymous()
+        .WithName("GetGlobalStats")
+        .WithSummary("Site-wide aggregated statistics across all users.");
 
         return api;
     }

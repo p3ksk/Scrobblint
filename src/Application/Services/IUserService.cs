@@ -30,4 +30,7 @@ public interface IUserService
     Task<Result> SetAdminAsync(Guid userId, bool isAdmin, CancellationToken cancellationToken = default);
 
     Task<Result<TokenResponse>> RegenerateUserTokenAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Permanently deletes a user and all their data (scrobbles, settings, connections).</summary>
+    Task<Result> DeleteUserAsync(Guid userId, CancellationToken cancellationToken = default);
 }

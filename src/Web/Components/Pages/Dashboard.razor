@@ -126,7 +126,7 @@ else
         var stats = await Stats.GetStatsAsync(username, viewer);
         if (stats.Succeeded) _stats = stats.Value;
 
-        var recent = await Scrobbles.GetRecentAsync(username, 1, 5, viewer);
+        var recent = await Scrobbles.GetRecentAsync(username, 1, 10, viewer);
         if (recent.Succeeded) _recent = recent.Value;
 
         _nowPlaying = Scrobbles.GetNowPlaying(user.GetUserId()!.Value);

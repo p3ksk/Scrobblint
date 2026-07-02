@@ -12,4 +12,7 @@ public interface IStatisticsService
         string username, ViewerContext viewer,
         DateTime? from = null, DateTime? to = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Site-wide aggregated statistics across all users.</summary>
+    Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default);
 }

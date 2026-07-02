@@ -56,6 +56,51 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.ToTable("ExternalConnections", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.FailedRelay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("NextRetryAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Provider")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RetryCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TracksJson")
+                        .IsRequired()
+                        .HasMaxLength(8192)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "NextRetryAt");
+
+                    b.ToTable("FailedRelays", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.Scrobble", b =>
                 {
                     b.Property<Guid>("Id")
@@ -272,6 +317,17 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                 {
                     b.HasOne("Scrobblint.Domain.Entities.User", "User")
                         .WithMany("ExternalConnections")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Scrobblint.Domain.Entities.FailedRelay", b =>
+                {
+                    b.HasOne("Scrobblint.Domain.Entities.User", "User")
+                        .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

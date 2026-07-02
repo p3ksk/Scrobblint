@@ -17,4 +17,7 @@ public interface IScrobbleRelayQueue
 
     /// <summary>Approximate number of jobs currently queued.</summary>
     int Count { get; }
+
+    /// <summary>Signals the queue that no more items will be enqueued so consumers can drain and exit.</summary>
+    void Complete();
 }

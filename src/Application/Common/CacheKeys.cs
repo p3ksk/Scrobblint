@@ -18,4 +18,9 @@ public static class CacheKeys
     /// </summary>
     public static string Artwork(string type, string artist, string? album = null)
         => album is null ? $"artwork:{type}:{artist}" : $"artwork:{type}:{artist}:{album}";
+
+    /// <summary>
+    /// Cached site-wide global statistics. No user or date scope — the key is static.
+    /// </summary>
+    public static string GlobalStats() => "stats:global";
 }

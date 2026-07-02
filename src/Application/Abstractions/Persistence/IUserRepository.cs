@@ -29,6 +29,9 @@ public interface IUserRepository
     /// <summary>Marks a tracked user as modified.</summary>
     void Update(User user);
 
+    /// <summary>Marks a tracked user for deletion (cascade-deletes scrobbles, settings, connections, imports).</summary>
+    void Remove(User user);
+
     /// <summary>
     /// Returns a single page of users together with their scrobble counts, for the admin list.
     /// The projection and paging run in the database.

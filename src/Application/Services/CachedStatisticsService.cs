@@ -46,4 +46,13 @@ public sealed class CachedStatisticsService : IStatisticsService
             return await _inner.GetStatsAsync(username, viewer, cancellationToken: cancellationToken);
         }))!;
     }
+
+    public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default)
+    {
+        return (await _cache.GetOrCreateAsync(CacheKeys.GlobalStats(), async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
+            return await _inner.GetGlobalStatsAsync(cancellationToken);
+        }))!;
+    }
 }
