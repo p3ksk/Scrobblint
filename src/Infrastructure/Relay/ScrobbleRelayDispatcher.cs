@@ -82,7 +82,7 @@ public sealed class ScrobbleRelayDispatcher : BackgroundService
                     await SaveFailedAsync(scope, job, connection.Provider, result.Error, cancellationToken);
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
             {
                 _logger.LogWarning(ex, "Error relaying to {Provider} for user {UserId}; saving for retry",
                     connection.Provider, job.UserId);
