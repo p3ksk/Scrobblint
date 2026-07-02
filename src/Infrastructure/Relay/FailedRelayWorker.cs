@@ -18,15 +18,18 @@ public sealed class FailedRelayWorker : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IReadOnlyDictionary<ScrobbleProvider, IScrobbleRelay> _relays;
+    private readonly IFailedRelayWorkerTrigger _trigger;
     private readonly ILogger<FailedRelayWorker> _logger;
 
     public FailedRelayWorker(
         IServiceScopeFactory scopeFactory,
         IEnumerable<IScrobbleRelay> relays,
+        IFailedRelayWorkerTrigger trigger,
         ILogger<FailedRelayWorker> logger)
     {
         _scopeFactory = scopeFactory;
         _relays = relays.ToDictionary(r => r.Provider);
+        _trigger = trigger;
         _logger = logger;
     }
 
@@ -36,6 +39,17 @@ public sealed class FailedRelayWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Wait first (rather than polling immediately on startup): gives the rest of the app
+            // a moment to settle, and lets an admin's "run now" action skip the wait early.
+            try
+            {
+                await _trigger.WaitForSignalAsync(PollInterval, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+
             try
             {
                 await ProcessBatchAsync(stoppingToken);
@@ -48,8 +62,6 @@ public sealed class FailedRelayWorker : BackgroundService
             {
                 _logger.LogError(ex, "Unhandled error in failed relay retry worker");
             }
-
-            await Task.Delay(PollInterval, stoppingToken);
         }
     }
 

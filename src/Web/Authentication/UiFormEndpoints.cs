@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Scrobblint.Api.Authentication;
+using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Connections;
@@ -173,6 +174,63 @@ public static class UiFormEndpoints
                 : Results.LocalRedirect($"/admin/users/{id}?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
         });
 
+        // ---- Admin: retry cache (failed relays) ----
+        var relayRetries = app.MapGroup("/admin/relayretries").RequireAuthorization(adminPolicy);
+
+        relayRetries.MapPost("/{id:guid}/retry", async (Guid id, HttpContext ctx, IAntiforgery af, IAdminService admin) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+            await admin.RetryFailedRelayAsync(id, ctx.RequestAborted);
+            return Results.LocalRedirect($"/admin/retrycache?page={RetryPage(form)}&retried=1");
+        });
+
+        relayRetries.MapPost("/{id:guid}/delete", async (Guid id, HttpContext ctx, IAntiforgery af, IAdminService admin) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+            await admin.DeleteFailedRelayAsync(id, ctx.RequestAborted);
+            return Results.LocalRedirect($"/admin/retrycache?page={RetryPage(form)}&deleted=1");
+        });
+
+        relayRetries.MapPost("/retry-all", async (HttpContext ctx, IAntiforgery af, IAdminService admin, IFailedRelayWorkerTrigger trigger) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+            var result = await admin.RetryAllFailedAsync(ctx.RequestAborted);
+            if (result.Succeeded) trigger.RequestRun();
+            return Results.LocalRedirect($"/admin/retrycache?page={RetryPage(form)}&retriedAll={result.Value}");
+        });
+
+        relayRetries.MapPost("/run-now", async (HttpContext ctx, IAntiforgery af, IFailedRelayWorkerTrigger trigger) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+            trigger.RequestRun();
+            return Results.LocalRedirect($"/admin/retrycache?page={RetryPage(form)}&ranNow=1");
+        });
+
+        // ---- Current user: retry cache (own stuck relays) ----
+        app.MapPost("/account/relayretries/{id:guid}/retry", async (
+            Guid id, HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            var result = await svc.RetryFailedRelayAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
+            return result.Succeeded
+                ? Results.LocalRedirect("/settings/connections?retried=1")
+                : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+        }).RequireAuthorization();
+
+        app.MapPost("/account/relayretries/{id:guid}/delete", async (
+            Guid id, HttpContext context, IAntiforgery antiforgery, IExternalConnectionService svc) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            var result = await svc.DeleteFailedRelayAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
+            return result.Succeeded
+                ? Results.LocalRedirect("/settings/connections?deleted=1")
+                : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+        }).RequireAuthorization();
+
         return app;
     }
 
@@ -181,6 +239,9 @@ public static class UiFormEndpoints
         try { await antiforgery.ValidateRequestAsync(context); return true; }
         catch (AntiforgeryValidationException) { return false; }
     }
+
+    private static int RetryPage(IFormCollection form) =>
+        int.TryParse(form["page"], out var page) && page > 0 ? page : 1;
 
     private static IResult RedirectConnections(Scrobblint.Application.Common.Result result) =>
         result.Succeeded

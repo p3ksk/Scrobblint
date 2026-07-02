@@ -1,0 +1,79 @@
+@page "/admin/retrycache/{Id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+@using System.Text.Json
+@inject IAdminService Admin
+
+<PageTitle>Admin · Retry cache record — Scrobblint</PageTitle>
+
+<AdminNav />
+
+@if (_record is null)
+{
+    <div class="card">
+        <h1>Record not found</h1>
+        <a class="btn" href="/admin/retrycache">Back to retry cache</a>
+    </div>
+}
+else
+{
+    <p><a href="/admin/retrycache">← All retry cache records</a></p>
+    <h1>@_record.Provider relay for @_record.Username</h1>
+
+    <div class="card narrow">
+        <dl class="detail-list">
+            <dt>User</dt><dd>@_record.Username</dd>
+            <dt>Provider</dt><dd>@_record.Provider</dd>
+            <dt>Status</dt><dd>@_record.Status</dd>
+            <dt>Retry count</dt><dd>@_record.RetryCount</dd>
+            <dt>Next retry</dt><dd>@Format.DateTimeUtc(_record.NextRetryAt)</dd>
+            <dt>Last error</dt><dd>@(_record.LastError ?? "—")</dd>
+            <dt>Created</dt><dd>@Format.DateTimeUtc(_record.CreatedAt)</dd>
+            <dt>Updated</dt><dd>@Format.DateTimeUtc(_record.UpdatedAt)</dd>
+        </dl>
+    </div>
+
+    <div class="card narrow">
+        <h2>Actions</h2>
+        <div class="action-row">
+            <form method="post" action="/admin/relayretries/@_record.Id/retry">
+                <AntiforgeryToken />
+                <button class="btn btn-primary" type="submit">Retry now</button>
+            </form>
+            <form method="post" action="/admin/relayretries/@_record.Id/delete"
+                  onsubmit="return confirm('Delete this retry cache record? This cannot be undone.');">
+                <AntiforgeryToken />
+                <button class="btn btn-danger" type="submit">Delete</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Raw payload</h2>
+        <pre class="code-block">@FormatTracksJson(_record.TracksJson)</pre>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private AdminFailedRelayDetail? _record;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Admin.GetFailedRelayDetailAsync(Id);
+        if (result.Succeeded) _record = result.Value;
+    }
+
+    private static string FormatTracksJson(string tracksJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(tracksJson);
+            return JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (JsonException)
+        {
+            return tracksJson;
+        }
+    }
+}

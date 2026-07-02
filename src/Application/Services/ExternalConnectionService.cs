@@ -6,6 +6,7 @@ using Scrobblint.Application.Common;
 using Scrobblint.Domain.Entities;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Connections;
+using Scrobblint.Shared.Relay;
 
 namespace Scrobblint.Application.Services;
 
@@ -14,6 +15,7 @@ public sealed class ExternalConnectionService : IExternalConnectionService
     private readonly IExternalConnectionRepository _connections;
     private readonly IListenBrainzRelay _listenBrainz;
     private readonly ILastfmRelay _lastfm;
+    private readonly IFailedRelayRepository _failedRelays;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ILogger<ExternalConnectionService> _logger;
@@ -22,6 +24,7 @@ public sealed class ExternalConnectionService : IExternalConnectionService
         IExternalConnectionRepository connections,
         IListenBrainzRelay listenBrainz,
         ILastfmRelay lastfm,
+        IFailedRelayRepository failedRelays,
         IUnitOfWork unitOfWork,
         IClock clock,
         ILogger<ExternalConnectionService> logger)
@@ -29,6 +32,7 @@ public sealed class ExternalConnectionService : IExternalConnectionService
         _connections = connections;
         _listenBrainz = listenBrainz;
         _lastfm = lastfm;
+        _failedRelays = failedRelays;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _logger = logger;
@@ -108,6 +112,46 @@ public sealed class ExternalConnectionService : IExternalConnectionService
         _connections.Remove(connection);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
         _logger.LogInformation("User {UserId} disconnected {Provider}", userId, provider);
+        return Result.Ok();
+    }
+
+    public async Task<Result<IReadOnlyList<UserFailedRelayDto>>> GetFailedRelaysAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var items = await _failedRelays.GetByUserIdAsync(userId, 50, cancellationToken);
+        var dtos = items
+            .Select(r => new UserFailedRelayDto(
+                r.Id, r.Provider, r.Status, Mappers.CountRelayTracks(r.TracksJson),
+                r.RetryCount, r.LastError, Mappers.ToUnix(r.UpdatedAt)))
+            .ToList();
+
+        return Result<IReadOnlyList<UserFailedRelayDto>>.Ok(dtos);
+    }
+
+    public async Task<Result> RetryFailedRelayAsync(Guid userId, Guid id, CancellationToken cancellationToken = default)
+    {
+        var failedRelay = await _failedRelays.GetByIdAsync(id, cancellationToken);
+        if (failedRelay is null || failedRelay.UserId != userId)
+            return Result.NotFound("Retry cache record not found.");
+
+        failedRelay.Status = RelayStatus.Pending;
+        failedRelay.RetryCount = 0;
+        failedRelay.NextRetryAt = DateTime.UtcNow;
+        failedRelay.UpdatedAt = DateTime.UtcNow;
+        _failedRelays.Update(failedRelay);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> DeleteFailedRelayAsync(Guid userId, Guid id, CancellationToken cancellationToken = default)
+    {
+        var failedRelay = await _failedRelays.GetByIdAsync(id, cancellationToken);
+        if (failedRelay is null || failedRelay.UserId != userId)
+            return Result.NotFound("Retry cache record not found.");
+
+        _failedRelays.Remove(failedRelay);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
         return Result.Ok();
     }
 

@@ -1,6 +1,7 @@
 using Scrobblint.Application.Common;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Connections;
+using Scrobblint.Shared.Relay;
 
 namespace Scrobblint.Application.Services;
 
@@ -22,4 +23,12 @@ public interface IExternalConnectionService
     Task<Result> SetEnabledAsync(Guid userId, ScrobbleProvider provider, bool enabled, CancellationToken cancellationToken = default);
 
     Task<Result> DisconnectAsync(Guid userId, ScrobbleProvider provider, CancellationToken cancellationToken = default);
+
+    /// <summary>Lists the caller's own stuck relay records (pending or permanently failed).</summary>
+    Task<Result<IReadOnlyList<UserFailedRelayDto>>> GetFailedRelaysAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>Resets one of the caller's own retry-cache records so it's retried on the worker's next poll.</summary>
+    Task<Result> RetryFailedRelayAsync(Guid userId, Guid id, CancellationToken cancellationToken = default);
+
+    Task<Result> DeleteFailedRelayAsync(Guid userId, Guid id, CancellationToken cancellationToken = default);
 }

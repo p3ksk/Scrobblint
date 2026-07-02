@@ -99,6 +99,9 @@ public static class DependencyInjection
         services.AddSingleton<IScrobbleRelayQueue, ScrobbleRelayQueue>();
         services.AddHostedService<ScrobbleRelayDispatcher>();
 
+        services.AddSingleton<IFailedRelayWorkerTrigger, FailedRelayWorkerTrigger>();
+        services.AddHostedService<FailedRelayWorker>();
+
         // --- Cover art (Deezer API, free — no key required) ---
         services.AddHttpClient(DeezerCoverArtProvider.HttpClientName, client =>
         {

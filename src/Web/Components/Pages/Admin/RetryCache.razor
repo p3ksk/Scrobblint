@@ -1,0 +1,144 @@
+@page "/admin/retrycache"
+@attribute [Authorize(Roles = "Admin")]
+@inject IAdminService Admin
+
+<PageTitle>Admin · Retry cache — Scrobblint</PageTitle>
+
+<AdminNav />
+<h1>Retry cache</h1>
+
+@if (Retried == 1)
+{
+    <div class="alert alert-success">Record reset — it will be retried on the worker's next poll.</div>
+}
+@if (Deleted == 1)
+{
+    <div class="alert alert-success">Record deleted.</div>
+}
+@if (RetriedAll is > 0)
+{
+    <div class="alert alert-success">@RetriedAll permanently-failed record(s) reset for retry.</div>
+}
+else if (RetriedAll == 0)
+{
+    <div class="alert alert-success">No permanently-failed records to retry.</div>
+}
+@if (RanNow == 1)
+{
+    <div class="alert alert-success">Worker signalled — it will run immediately instead of waiting for its next poll.</div>
+}
+
+<div class="card">
+    <div class="action-row">
+        <form method="post" action="/admin/relayretries/run-now">
+            <AntiforgeryToken />
+            <input type="hidden" name="page" value="@_currentPage" />
+            <button class="btn" type="submit">Run worker now</button>
+        </form>
+        <form method="post" action="/admin/relayretries/retry-all"
+              onsubmit="return confirm('Reset every permanently-failed record for retry?');">
+            <AntiforgeryToken />
+            <input type="hidden" name="page" value="@_currentPage" />
+            <button class="btn" type="submit">Retry all failed</button>
+        </form>
+    </div>
+
+    @if (_page is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_page.TotalCount == 0)
+    {
+        <p class="muted">No failed relay records.</p>
+    }
+    else
+    {
+        <div class="table-scroll">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>User</th><th>Provider</th><th>Status</th><th>Tracks</th>
+                    <th>Retries</th><th>Next retry</th><th>Last error</th><th>Updated</th><th></th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _page.Items)
+                {
+                    <tr>
+                        <td>@r.Username</td>
+                        <td>@r.Provider</td>
+                        <td>
+                            @switch (r.Status)
+                            {
+                                case RelayStatus.Pending:
+                                    <span class="badge">pending</span>
+                                    break;
+                                case RelayStatus.Failed:
+                                    <span class="badge badge-danger">failed</span>
+                                    break;
+                                case RelayStatus.Cancelled:
+                                    <span class="badge badge-danger">cancelled</span>
+                                    break;
+                                default:
+                                    <span class="badge badge-ok">@r.Status.ToString().ToLower()</span>
+                                    break;
+                            }
+                        </td>
+                        <td>@r.TrackCount</td>
+                        <td>@r.RetryCount</td>
+                        <td class="muted">@Format.DateTimeUtc(r.NextRetryAt)</td>
+                        <td class="muted">@(r.LastError ?? "—")</td>
+                        <td class="muted">@Format.DateTimeUtc(r.UpdatedAt)</td>
+                        <td><a href="/admin/retrycache/@r.Id">View</a></td>
+                        <td>
+                            <div class="action-row">
+                                <form method="post" action="/admin/relayretries/@r.Id/retry">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="page" value="@_currentPage" />
+                                    <button class="btn" type="submit">Retry</button>
+                                </form>
+                                <form method="post" action="/admin/relayretries/@r.Id/delete"
+                                      onsubmit="return confirm('Delete this retry cache record? This cannot be undone.');">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="page" value="@_currentPage" />
+                                    <button class="btn btn-danger" type="submit">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+
+        <div class="pager">
+            @if (_page.HasPrevious)
+            {
+                <a class="btn" href="/admin/retrycache?page=@(_page.Page - 1)">← Previous</a>
+            }
+            <span class="muted">Page @_page.Page of @_page.TotalPages (@_page.TotalCount records)</span>
+            @if (_page.HasNext)
+            {
+                <a class="btn" href="/admin/retrycache?page=@(_page.Page + 1)">Next →</a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+    [SupplyParameterFromQuery] private int? Retried { get; set; }
+    [SupplyParameterFromQuery] private int? Deleted { get; set; }
+    [SupplyParameterFromQuery] private int? RetriedAll { get; set; }
+    [SupplyParameterFromQuery] private int? RanNow { get; set; }
+
+    private PagedResponse<AdminFailedRelayListItem>? _page;
+    private int _currentPage = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentPage = Math.Max(1, Page ?? 1);
+        var result = await Admin.GetFailedRelaysAsync(_currentPage, 25);
+        if (result.Succeeded) _page = result.Value;
+    }
+}

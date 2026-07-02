@@ -3,7 +3,10 @@ using Scrobblint.Application.Abstractions.CoverArt;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
+using Scrobblint.Application.Common;
 using Scrobblint.Domain.Enums;
+using Scrobblint.Shared.Common;
+using Scrobblint.Shared.Relay;
 
 namespace Scrobblint.Application.Services;
 
@@ -29,6 +32,19 @@ public sealed record AdminStatus(
 public interface IAdminService
 {
     Task<AdminStatus> GetStatusAsync(CancellationToken ct = default);
+
+    Task<Result<PagedResponse<AdminFailedRelayListItem>>> GetFailedRelaysAsync(
+        int page, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Resets a retry-cache record so the relay worker picks it up on its next poll.</summary>
+    Task<Result> RetryFailedRelayAsync(Guid id, CancellationToken ct = default);
+
+    Task<Result> DeleteFailedRelayAsync(Guid id, CancellationToken ct = default);
+
+    Task<Result<AdminFailedRelayDetail>> GetFailedRelayDetailAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Resets every permanently-failed record back to pending. Returns the number reset.</summary>
+    Task<Result<int>> RetryAllFailedAsync(CancellationToken ct = default);
 }
 
 public sealed class AdminService : IAdminService
@@ -44,6 +60,7 @@ public sealed class AdminService : IAdminService
     private readonly IScrobbleImportQueue _importQueue;
     private readonly ICoverArtProvider _coverArt;
     private readonly IFailedRelayRepository _failedRelays;
+    private readonly IUnitOfWork _unitOfWork;
 
     public AdminService(
         IScrobbleRepository scrobbles,
@@ -54,7 +71,8 @@ public sealed class AdminService : IAdminService
         IScrobbleRelayQueue relayQueue,
         IScrobbleImportQueue importQueue,
         ICoverArtProvider coverArt,
-        IFailedRelayRepository failedRelays)
+        IFailedRelayRepository failedRelays,
+        IUnitOfWork unitOfWork)
     {
         _scrobbles = scrobbles;
         _users = users;
@@ -65,6 +83,7 @@ public sealed class AdminService : IAdminService
         _importQueue = importQueue;
         _coverArt = coverArt;
         _failedRelays = failedRelays;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<AdminStatus> GetStatusAsync(CancellationToken ct = default)
@@ -97,5 +116,64 @@ public sealed class AdminService : IAdminService
             PendingFailedRelays: pendingFailed,
             PermanentlyFailedRelays: permanentlyFailed
         );
+    }
+
+    public async Task<Result<PagedResponse<AdminFailedRelayListItem>>> GetFailedRelaysAsync(
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        page = AppConstants.ClampPage(page);
+        pageSize = AppConstants.ClampPageSize(pageSize);
+        var (items, total) = await _failedRelays.GetAdminListAsync(page, pageSize, ct);
+        return Result<PagedResponse<AdminFailedRelayListItem>>.Ok(
+            new PagedResponse<AdminFailedRelayListItem>(items, page, pageSize, total));
+    }
+
+    public async Task<Result> RetryFailedRelayAsync(Guid id, CancellationToken ct = default)
+    {
+        var failedRelay = await _failedRelays.GetByIdAsync(id, ct);
+        if (failedRelay is null)
+            return Result.NotFound("Retry cache record not found.");
+
+        failedRelay.Status = RelayStatus.Pending;
+        failedRelay.RetryCount = 0;
+        failedRelay.NextRetryAt = DateTime.UtcNow;
+        failedRelay.UpdatedAt = DateTime.UtcNow;
+        _failedRelays.Update(failedRelay);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return Result.Ok();
+    }
+
+    public async Task<Result> DeleteFailedRelayAsync(Guid id, CancellationToken ct = default)
+    {
+        var failedRelay = await _failedRelays.GetByIdAsync(id, ct);
+        if (failedRelay is null)
+            return Result.NotFound("Retry cache record not found.");
+
+        _failedRelays.Remove(failedRelay);
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return Result.Ok();
+    }
+
+    public async Task<Result<AdminFailedRelayDetail>> GetFailedRelayDetailAsync(Guid id, CancellationToken ct = default)
+    {
+        var failedRelay = await _failedRelays.GetByIdAsync(id, ct);
+        if (failedRelay is null)
+            return Result<AdminFailedRelayDetail>.NotFound("Retry cache record not found.");
+
+        var user = await _users.GetByIdAsync(failedRelay.UserId, ct);
+
+        return Result<AdminFailedRelayDetail>.Ok(new AdminFailedRelayDetail(
+            failedRelay.Id, failedRelay.UserId, user?.Username ?? "(deleted user)",
+            failedRelay.Provider, failedRelay.Status, failedRelay.RetryCount,
+            Mappers.ToUnix(failedRelay.NextRetryAt), failedRelay.LastError, failedRelay.TracksJson,
+            Mappers.ToUnix(failedRelay.CreatedAt), Mappers.ToUnix(failedRelay.UpdatedAt)));
+    }
+
+    public async Task<Result<int>> RetryAllFailedAsync(CancellationToken ct = default)
+    {
+        var count = await _failedRelays.ResetAllFailedAsync(ct);
+        return Result<int>.Ok(count);
     }
 }

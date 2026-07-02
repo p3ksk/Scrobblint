@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Scrobblint.Domain.Entities;
 using Scrobblint.Shared.Scrobbles;
 using Scrobblint.Shared.Users;
@@ -23,4 +24,18 @@ public static class Mappers
 
     public static UserSettingsDto ToDto(this UserSettings settings) =>
         new(settings.ProfileVisibility, settings.Theme);
+
+    /// <summary>Counts entries in a <c>FailedRelay.TracksJson</c> array, tolerating malformed payloads.</summary>
+    public static int CountRelayTracks(string tracksJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(tracksJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement.GetArrayLength() : 0;
+        }
+        catch (JsonException)
+        {
+            return 0;
+        }
+    }
 }
