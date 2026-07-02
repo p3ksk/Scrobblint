@@ -1,0 +1,83 @@
+@page "/admin/trackcache/{Id:guid}"
+@attribute [Authorize(Roles = "Admin")]
+@inject ITrackInfoRepository TrackInfo
+@inject IUnitOfWork UnitOfWork
+
+<PageTitle>Track Cache — Scrobblint</PageTitle>
+
+<AdminNav />
+
+@if (_track is null)
+{
+    <div class="card">
+        <h1>Entry not found</h1>
+        <a class="btn" href="/admin/trackcache">Back to track cache</a>
+    </div>
+}
+else
+{
+    <p><a href="/admin/trackcache">← All entries</a></p>
+    <h1>Edit cache entry</h1>
+
+    @if (Saved)
+    {
+        <div class="alert alert-success">Entry updated.</div>
+    }
+
+    <div class="card narrow">
+        <form method="post" action="/admin/trackcache/@Id">
+            <AntiforgeryToken />
+            <label>
+                Submitted artist
+                <input value="@_track.ArtistKey" readonly />
+            </label>
+            <label>
+                Submitted track
+                <input value="@_track.TrackKey" readonly />
+            </label>
+            <label>
+                Canonical artist
+                <input name="CanonicalArtist" value="@_track.CanonicalArtist" />
+            </label>
+            <label>
+                Canonical track
+                <input name="CanonicalTrack" value="@_track.CanonicalTrack" />
+            </label>
+            <label>
+                Canonical album
+                <input name="CanonicalAlbum" value="@_track.CanonicalAlbum" />
+            </label>
+            <label>
+                Status
+                <select name="Found">
+                    <option value="true" selected="@(_track.Found)">Found — has metadata</option>
+                    <option value="false" selected="@(!_track.Found)">Not found — negative cache</option>
+                </select>
+            </label>
+            <p class="muted">Fetched: @_track.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</p>
+            <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+    </div>
+
+    <div class="card narrow" style="margin-top:1.5rem">
+        <h2>Danger zone</h2>
+        <p class="muted">Deleting this entry means the next play of this track will re-query the Last.fm API.</p>
+        <form method="post" action="/admin/trackcache/@Id/delete"
+              onsubmit="return confirm('Delete this cache entry? The next play will re-fetch from Last.fm.');">
+            <AntiforgeryToken />
+            <button class="btn btn-danger" type="submit">Delete entry</button>
+        </form>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+    [SupplyParameterFromQuery] private bool Saved { get; set; }
+
+    private TrackInfo? _track;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _track = await TrackInfo.GetByIdAsync(Id);
+    }
+}

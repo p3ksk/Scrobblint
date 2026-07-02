@@ -17,6 +17,7 @@ public static class ApiModule
         api.MapUserEndpoints();
         api.MapConnectionEndpoints();
         api.MapAdminEndpoints();
+        api.MapTrackCacheEndpoints();
         api.MapGlobalStatsEndpoint();
 
         return app;
