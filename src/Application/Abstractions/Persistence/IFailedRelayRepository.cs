@@ -17,6 +17,9 @@ public interface IFailedRelayRepository
     /// <summary>Resets every permanently-failed record back to pending, for immediate retry. Returns the number reset.</summary>
     Task<int> ResetAllFailedAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Deletes completed records last touched before <paramref name="cutoff"/>. Returns the number deleted.</summary>
+    Task<int> DeleteCompletedOlderThanAsync(DateTime cutoff, CancellationToken cancellationToken = default);
+
     void Update(FailedRelay failedRelay);
     void Remove(FailedRelay failedRelay);
 }

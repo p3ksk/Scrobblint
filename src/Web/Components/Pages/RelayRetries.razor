@@ -1,0 +1,87 @@
+@page "/settings/relayretries"
+@attribute [Authorize]
+@inject IExternalConnectionService ConnectionService
+
+<PageTitle>Failed relays — Scrobblint</PageTitle>
+
+<h1>Settings</h1>
+
+<SettingsNav />
+
+<p class="muted">Listens that couldn't be relayed on to Last.fm or ListenBrainz. Retry will re-attempt on the worker's next poll.</p>
+
+@if (Retried == 1)
+{
+    <div class="alert alert-success">Relay reset — it will be retried shortly.</div>
+}
+@if (Deleted == 1)
+{
+    <div class="alert alert-success">Retry cache record deleted.</div>
+}
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-error">@Error</div>
+}
+
+<div class="card">
+    @if (_failedRelays is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_failedRelays.Count == 0)
+    {
+        <p class="muted">No failed relays. Everything's caught up.</p>
+    }
+    else
+    {
+        <div class="table-scroll">
+        <table class="table">
+            <thead>
+                <tr><th>Provider</th><th>Status</th><th>Tracks</th><th>Retries</th><th>Last error</th><th>Updated</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _failedRelays)
+                {
+                    <tr>
+                        <td>@r.Provider</td>
+                        <td>@r.Status</td>
+                        <td>@r.TrackCount</td>
+                        <td>@r.RetryCount</td>
+                        <td class="muted">@(r.LastError ?? "—")</td>
+                        <td class="muted">@Format.DateTimeUtc(r.UpdatedAt)</td>
+                        <td>
+                            <div class="action-row">
+                                <form method="post" action="/account/relayretries/@r.Id/retry">
+                                    <AntiforgeryToken />
+                                    <button class="btn" type="submit">Retry</button>
+                                </form>
+                                <form method="post" action="/account/relayretries/@r.Id/delete"
+                                      onsubmit="return confirm('Give up on this relay? This cannot be undone.');">
+                                    <AntiforgeryToken />
+                                    <button class="btn btn-danger" type="submit">Delete</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [SupplyParameterFromQuery] private string? Error { get; set; }
+    [SupplyParameterFromQuery] private int? Retried { get; set; }
+    [SupplyParameterFromQuery] private int? Deleted { get; set; }
+
+    private IReadOnlyList<UserFailedRelayDto>? _failedRelays;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userId = (await AuthState!).User.GetUserId()!.Value;
+        var result = await ConnectionService.GetFailedRelaysAsync(userId);
+        if (result.Succeeded) _failedRelays = result.Value;
+    }
+}

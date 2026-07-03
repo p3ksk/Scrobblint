@@ -105,6 +105,14 @@ public sealed class FailedRelayRepository : IFailedRelayRepository
                 cancellationToken);
     }
 
+    public async Task<int> DeleteCompletedOlderThanAsync(DateTime cutoff, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.FailedRelays
+            .Where(r => r.Status == RelayStatus.Completed && r.UpdatedAt < cutoff)
+            .ExecuteDeleteAsync(cancellationToken);
+    }
+
     public void Update(FailedRelay failedRelay) => _context.FailedRelays.Update(failedRelay);
 
     public void Remove(FailedRelay failedRelay) => _context.FailedRelays.Remove(failedRelay);

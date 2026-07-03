@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Scrobblint.Api.Authentication;
+using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
 using Scrobblint.Domain.Enums;
@@ -174,6 +175,44 @@ public static class UiFormEndpoints
                 : Results.LocalRedirect($"/admin/users/{id}?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
         });
 
+        // ---- Admin: track cache ----
+        var trackCache = app.MapGroup("/admin/trackcache").RequireAuthorization(adminPolicy);
+
+        trackCache.MapPost("/{id:guid}", async (
+            Guid id, HttpContext ctx, IAntiforgery af, ITrackInfoRepository trackInfo, IUnitOfWork unitOfWork) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+
+            var entry = await trackInfo.GetByIdAsync(id, ctx.RequestAborted);
+            if (entry is null) return Results.LocalRedirect("/admin/trackcache");
+
+            entry.CanonicalArtist = NullIfEmpty(form["CanonicalArtist"]);
+            entry.CanonicalTrack = NullIfEmpty(form["CanonicalTrack"]);
+            entry.CanonicalAlbum = NullIfEmpty(form["CanonicalAlbum"]);
+            if (bool.TryParse(form["Found"], out var found)) entry.Found = found;
+
+            trackInfo.Update(entry);
+            await unitOfWork.SaveChangesAsync(ctx.RequestAborted);
+
+            return Results.LocalRedirect($"/admin/trackcache/{id}?saved=true");
+        });
+
+        trackCache.MapPost("/{id:guid}/delete", async (
+            Guid id, HttpContext ctx, IAntiforgery af, ITrackInfoRepository trackInfo, IUnitOfWork unitOfWork) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+
+            var entry = await trackInfo.GetByIdAsync(id, ctx.RequestAborted);
+            if (entry is not null)
+            {
+                trackInfo.Delete(entry);
+                await unitOfWork.SaveChangesAsync(ctx.RequestAborted);
+            }
+
+            return Results.LocalRedirect("/admin/trackcache");
+        });
+
         // ---- Admin: retry cache (failed relays) ----
         var relayRetries = app.MapGroup("/admin/relayretries").RequireAuthorization(adminPolicy);
 
@@ -217,8 +256,8 @@ public static class UiFormEndpoints
             if (!await Valid(antiforgery, context)) return Results.BadRequest();
             var result = await svc.RetryFailedRelayAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
             return result.Succeeded
-                ? Results.LocalRedirect("/settings/connections?retried=1")
-                : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+                ? Results.LocalRedirect("/settings/relayretries?retried=1")
+                : Results.LocalRedirect($"/settings/relayretries?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
         }).RequireAuthorization();
 
         app.MapPost("/account/relayretries/{id:guid}/delete", async (
@@ -227,8 +266,8 @@ public static class UiFormEndpoints
             if (!await Valid(antiforgery, context)) return Results.BadRequest();
             var result = await svc.DeleteFailedRelayAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
             return result.Succeeded
-                ? Results.LocalRedirect("/settings/connections?deleted=1")
-                : Results.LocalRedirect($"/settings/connections?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+                ? Results.LocalRedirect("/settings/relayretries?deleted=1")
+                : Results.LocalRedirect($"/settings/relayretries?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
         }).RequireAuthorization();
 
         return app;
@@ -242,6 +281,9 @@ public static class UiFormEndpoints
 
     private static int RetryPage(IFormCollection form) =>
         int.TryParse(form["page"], out var page) && page > 0 ? page : 1;
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static IResult RedirectConnections(Scrobblint.Application.Common.Result result) =>
         result.Succeeded

@@ -15,6 +15,7 @@ public sealed class FailedRelayWorker : BackgroundService
     private const int BatchSize = 10;
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromHours(1);
+    private static readonly TimeSpan CompletedRetention = TimeSpan.FromHours(24);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IReadOnlyDictionary<ScrobbleProvider, IScrobbleRelay> _relays;
@@ -62,7 +63,31 @@ public sealed class FailedRelayWorker : BackgroundService
             {
                 _logger.LogError(ex, "Unhandled error in failed relay retry worker");
             }
+
+            try
+            {
+                await CleanupCompletedAsync(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled error cleaning up completed relay records");
+            }
         }
+    }
+
+    /// <summary>Deletes records that relayed successfully more than <see cref="CompletedRetention"/> ago.</summary>
+    private async Task CleanupCompletedAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IFailedRelayRepository>();
+
+        var deleted = await repo.DeleteCompletedOlderThanAsync(DateTime.UtcNow - CompletedRetention, cancellationToken);
+        if (deleted > 0)
+            _logger.LogInformation("Deleted {Count} completed relay record(s) older than {Retention}", deleted, CompletedRetention);
     }
 
     private async Task ProcessBatchAsync(CancellationToken cancellationToken)
