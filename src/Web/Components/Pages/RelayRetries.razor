@@ -44,23 +44,26 @@
                 {
                     <tr>
                         <td>@r.Provider</td>
-                        <td>@r.Status</td>
+                        <td><RelayStatusBadge Status="r.Status" /></td>
                         <td>@r.TrackCount</td>
                         <td>@r.RetryCount</td>
                         <td class="muted">@(r.LastError ?? "—")</td>
                         <td class="muted">@Format.DateTimeUtc(r.UpdatedAt)</td>
                         <td>
-                            <div class="action-row">
-                                <form method="post" action="/account/relayretries/@r.Id/retry">
-                                    <AntiforgeryToken />
-                                    <button class="btn" type="submit">Retry</button>
-                                </form>
-                                <form method="post" action="/account/relayretries/@r.Id/delete"
-                                      onsubmit="return confirm('Give up on this relay? This cannot be undone.');">
-                                    <AntiforgeryToken />
-                                    <button class="btn btn-danger" type="submit">Delete</button>
-                                </form>
-                            </div>
+                            @if (r.Status != RelayStatus.Completed)
+                            {
+                                <div class="action-row">
+                                    <form method="post" action="/account/relayretries/@r.Id/retry">
+                                        <AntiforgeryToken />
+                                        <button class="btn" type="submit">Retry</button>
+                                    </form>
+                                    <form method="post" action="/account/relayretries/@r.Id/delete"
+                                          onsubmit="return confirm('Give up on this relay? This cannot be undone.');">
+                                        <AntiforgeryToken />
+                                        <button class="btn btn-danger" type="submit">Delete</button>
+                                    </form>
+                                </div>
+                            }
                         </td>
                     </tr>
                 }

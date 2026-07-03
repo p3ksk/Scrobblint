@@ -1,0 +1,19 @@
+@switch (Status)
+{
+    case RelayStatus.Pending:
+        <span class="badge">pending</span>
+        break;
+    case RelayStatus.Failed:
+        <span class="badge badge-danger">failed</span>
+        break;
+    case RelayStatus.Cancelled:
+        <span class="badge badge-danger">cancelled</span>
+        break;
+    default:
+        <span class="badge badge-ok">@Status.ToString().ToLower()</span>
+        break;
+}
+
+@code {
+    [Parameter] public RelayStatus Status { get; set; }
+}

@@ -1,10 +1,16 @@
 @page "/"
+@inject IStatisticsService Stats
 
 <PageTitle>Scrobblint</PageTitle>
 
 <div class="hero">
     <h1>🎧 Scrobblint</h1>
     <p class="lead">A lightweight, self-hosted scrobbling service — track what you listen to, your way.</p>
+
+    @if (_totalScrobbles is { } total)
+    {
+        <p class="lead"><strong>@total.ToString("N0")</strong> scrobbles tracked and counting.</p>
+    }
 
     <AuthorizeView>
         <Authorized>
@@ -32,3 +38,13 @@
     </ol>
     <p>Looking up someone's public profile? Visit <code>/user/&lt;username&gt;</code>.</p>
 </div>
+
+@code {
+    private int? _totalScrobbles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Stats.GetGlobalStatsAsync();
+        if (result.Succeeded) _totalScrobbles = result.Value.TotalScrobbles;
+    }
+}

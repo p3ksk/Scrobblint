@@ -178,7 +178,7 @@ public static class UiFormEndpoints
         // ---- Admin: track cache ----
         var trackCache = app.MapGroup("/admin/trackcache").RequireAuthorization(adminPolicy);
 
-        trackCache.MapPost("/{id:guid}", async (
+        trackCache.MapPost("/{id:guid}/save", async (
             Guid id, HttpContext ctx, IAntiforgery af, ITrackInfoRepository trackInfo, IUnitOfWork unitOfWork) =>
         {
             if (!await Valid(af, ctx)) return Results.BadRequest();

@@ -68,23 +68,7 @@ else if (RetriedAll == 0)
                     <tr style="cursor:pointer" @onclick="() => GoToDetail(r.Id)">
                         <td>@r.Username</td>
                         <td>@r.Provider</td>
-                        <td>
-                            @switch (r.Status)
-                            {
-                                case RelayStatus.Pending:
-                                    <span class="badge">pending</span>
-                                    break;
-                                case RelayStatus.Failed:
-                                    <span class="badge badge-danger">failed</span>
-                                    break;
-                                case RelayStatus.Cancelled:
-                                    <span class="badge badge-danger">cancelled</span>
-                                    break;
-                                default:
-                                    <span class="badge badge-ok">@r.Status.ToString().ToLower()</span>
-                                    break;
-                            }
-                        </td>
+                        <td><RelayStatusBadge Status="r.Status" /></td>
                         <td>@r.TrackCount</td>
                         <td>@r.RetryCount</td>
                         <td class="muted">@Format.DateTimeUtc(r.NextRetryAt)</td>
