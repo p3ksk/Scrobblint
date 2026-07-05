@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
+  <!-- Scrobblint favicon — neo-brutalist equalizer bars, echoing the app's bar charts.
+       Hard ink border, hard offset shadow (no blur), vivid accent blocks. -->
+  <!-- hard offset shadow -->
+  <rect x="4" y="4" width="25" height="25" fill="#14110f"/>
+  <!-- panel tile -->
+  <rect x="2" y="1" width="25" height="25" fill="#fffdf6" stroke="#14110f" stroke-width="2"/>
+  <!-- equalizer bars (lime / blue / coral, matching .bar-chart accents) -->
+  <g stroke="#14110f" stroke-width="1.5">
+    <rect x="5.5"  y="15" width="5" height="9"  fill="#c8f135"/>
+    <rect x="12"   y="7"  width="5" height="17" fill="#4d63ff"/>
+    <rect x="18.5" y="11" width="5" height="13" fill="#ff5d5d"/>
+  </g>
+</svg>
