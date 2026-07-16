@@ -45,10 +45,20 @@ public sealed class ScrobbleRepository : IScrobbleRepository
     }
 
     public async Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
-        Guid userId, int page, int pageSize, CancellationToken cancellationToken = default)
+        Guid userId, int page, int pageSize, DateTime? from = null, DateTime? to = null, string? search = null, CancellationToken cancellationToken = default)
     {
         await using var db = _factory.CreateDbContext();
         var baseQuery = db.Scrobbles.AsNoTracking().Where(s => s.UserId == userId);
+        baseQuery = ApplyDateFilter(baseQuery, from, to);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            baseQuery = baseQuery.Where(s =>
+                EF.Functions.Like(s.Artist, $"%{term}%") ||
+                EF.Functions.Like(s.Track, $"%{term}%") ||
+                (s.Album != null && EF.Functions.Like(s.Album, $"%{term}%")));
+        }
 
         var total = await baseQuery.CountAsync(cancellationToken);
         var items = await baseQuery
@@ -217,6 +227,45 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         if (from.HasValue) q = q.Where(s => s.Timestamp >= from.Value);
         if (to.HasValue) q = q.Where(s => s.Timestamp < to.Value);
         return q;
+    }
+
+    public async Task<IReadOnlyList<IReadOnlyList<int>>> GetDayHourHeatmapAsync(
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default)
+    {
+        await using var db = _factory.CreateDbContext();
+        var rows = await ApplyDateFilter(db.Scrobbles.Where(s => s.UserId == userId), from, to)
+            .GroupBy(s => new { s.Timestamp.DayOfWeek, s.Timestamp.Hour })
+            .Select(g => new { g.Key.DayOfWeek, g.Key.Hour, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        var counts = new Dictionary<string, int>();
+        foreach (var r in rows)
+            counts[$"{(int)r.DayOfWeek}.{r.Hour}"] = r.Count;
+
+        // Build 8×24 grid: row 0 = average, rows 1-7 = Mon(1)..Sun(0)
+        var grid = new List<IReadOnlyList<int>>(8);
+
+        // Row 0: average per hour across 7 days
+        var avgRow = new int[24];
+        for (var h = 0; h < 24; h++)
+        {
+            var sum = 0;
+            for (var d = 0; d <= 6; d++) sum += counts.GetValueOrDefault($"{d}.{h}");
+            avgRow[h] = (int)Math.Round(sum / 7.0);
+        }
+        grid.Add(avgRow);
+
+        // Rows 1-7: Monday (1) through Saturday (6), then Sunday (0)
+        int[] dayOrder = { 1, 2, 3, 4, 5, 6, 0 };
+        foreach (var d in dayOrder)
+        {
+            var dayRow = new int[24];
+            for (var h = 0; h < 24; h++)
+                dayRow[h] = counts.GetValueOrDefault($"{d}.{h}");
+            grid.Add(dayRow);
+        }
+
+        return grid;
     }
 
     // ── Artist / album drill-down ──────────────────────────────────────────

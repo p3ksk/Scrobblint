@@ -98,7 +98,7 @@ public static class ListenBrainzEndpoints
         var viewer = viewerUser is null ? ViewerContext.Anonymous : new ViewerContext(viewerUser.Id, viewerUser.IsAdmin);
 
         var pageSize = Math.Clamp(count ?? 25, 1, 100);
-        var result = await scrobbles.GetRecentAsync(userName, 1, pageSize, viewer, ctx.RequestAborted);
+        var result = await scrobbles.GetRecentAsync(userName, 1, pageSize, viewer, cancellationToken: ctx.RequestAborted);
         if (result.Failed)
         {
             var status = result.Error == ResultError.Forbidden ? StatusCodes.Status403Forbidden : StatusCodes.Status404NotFound;

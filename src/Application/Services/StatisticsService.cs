@@ -48,10 +48,12 @@ public sealed class StatisticsService : IStatisticsService
         var hourly = await _scrobbles.GetHourlyChartAsync(user.Id, from, to, cancellationToken);
         var dayOfWeek = await _scrobbles.GetDayOfWeekChartAsync(user.Id, from, to, cancellationToken);
         var yearly = await _scrobbles.GetYearlyChartAsync(user.Id, from, to, cancellationToken);
+        var heatmap = await _scrobbles.GetDayHourHeatmapAsync(user.Id, from, to, cancellationToken);
 
         return Result<StatsResponse>.Ok(new StatsResponse(
             total, uniqueArtists, uniqueTracks, uniqueAlbums,
-            topArtists, topAlbums, topTracks, monthly, daily, hourly, dayOfWeek, yearly));
+            topArtists, topAlbums, topTracks, monthly, daily, hourly, dayOfWeek, yearly,
+            new DayHourHeatmap(heatmap)));
     }
 
     public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default)

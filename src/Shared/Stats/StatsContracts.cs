@@ -12,6 +12,11 @@ public sealed record TrackCount(string Artist, string Track, int Count);
 /// <summary>A point on a time-series chart, e.g. ("2026-06", 142) or ("2026-06-15", 7).</summary>
 public sealed record ChartPoint(string Period, int Count);
 
+/// <summary>A day-of-week × hour heatmap grid for listening activity visualization.
+/// Row 0 is the daily average per hour; rows 1-7 are Monday through Sunday.
+/// Columns are hours 0-23 UTC.</summary>
+public sealed record DayHourHeatmap(IReadOnlyList<IReadOnlyList<int>> Rows);
+
 /// <summary>
 /// The statistics dashboard payload for a user. Top-N lists are bounded server-side.
 /// </summary>
@@ -27,7 +32,8 @@ public sealed record StatsResponse(
     IReadOnlyList<ChartPoint> DailyChart,
     IReadOnlyList<ChartPoint> HourlyChart,
     IReadOnlyList<ChartPoint> DayOfWeekChart,
-    IReadOnlyList<ChartPoint> YearlyChart);
+    IReadOnlyList<ChartPoint> YearlyChart,
+    DayHourHeatmap? DayHourHeatmap = null);
 
 /// <summary>
 /// Site-wide aggregated statistics across all users. Restricted to totals + top-N lists

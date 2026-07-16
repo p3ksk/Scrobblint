@@ -21,7 +21,9 @@ public interface IScrobbleService
     /// supplied <paramref name="viewer"/>.
     /// </summary>
     Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentAsync(
-        string username, int page, int pageSize, ViewerContext viewer, CancellationToken cancellationToken = default);
+        string username, int page, int pageSize, ViewerContext viewer,
+        DateTime? from = null, DateTime? to = null, string? search = null,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends a now-playing update to all enabled external relays for the user.

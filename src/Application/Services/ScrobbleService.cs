@@ -197,7 +197,9 @@ public sealed class ScrobbleService : IScrobbleService
     }
 
     public async Task<Result<PagedResponse<ScrobbleResponse>>> GetRecentAsync(
-        string username, int page, int pageSize, ViewerContext viewer, CancellationToken cancellationToken = default)
+        string username, int page, int pageSize, ViewerContext viewer,
+        DateTime? from = null, DateTime? to = null, string? search = null,
+        CancellationToken cancellationToken = default)
     {
         var user = await _users.GetByUsernameAsync(username, cancellationToken);
         if (user is null || user.IsDisabled)
@@ -210,7 +212,7 @@ public sealed class ScrobbleService : IScrobbleService
         page = AppConstants.ClampPage(page);
         pageSize = AppConstants.ClampPageSize(pageSize);
 
-        var (items, total) = await _scrobbles.GetRecentAsync(user.Id, page, pageSize, cancellationToken);
+        var (items, total) = await _scrobbles.GetRecentAsync(user.Id, page, pageSize, from, to, search, cancellationToken);
         var mapped = items.Select(s => s.ToResponse()).ToList();
         return Result<PagedResponse<ScrobbleResponse>>.Ok(
             new PagedResponse<ScrobbleResponse>(mapped, page, pageSize, total));

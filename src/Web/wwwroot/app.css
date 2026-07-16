@@ -31,6 +31,7 @@
     --shadow: 6px 6px 0 0 var(--shadow-color);
     --shadow-sm: 3px 3px 0 0 var(--shadow-color);
     --dot: rgba(20, 17, 15, 0.10);
+    --heat-empty-bg: #fdf6eb;  /* heatmap: warm cream for zero cells */
 
     --font-display: ui-monospace, "Cascadia Code", "Segoe UI Mono", "DejaVu Sans Mono", Consolas, monospace;
     --font-body: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -48,6 +49,7 @@
     --muted-ink: #9c9486;
     --shadow-color: #12101a;
     --dot: rgba(228, 221, 207, 0.06);
+    --heat-empty-bg: #373244;  /* heatmap: muted purple-grey for zero cells in dark */
 }
 
 /* …or follows the OS when the choice is "system" (the default / no explicit override). */
@@ -59,6 +61,7 @@
         --muted-ink: #9c9486;
         --shadow-color: #12101a;
         --dot: rgba(228, 221, 207, 0.06);
+        --heat-empty-bg: #373244;  /* heatmap: muted purple-grey for zero cells in dark (system) */
     }
 }
 
@@ -365,7 +368,7 @@ form input:focus, form select:focus {
 .detail-list { display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 1.25rem; margin: 0; }
 .detail-list dt { font-family: var(--font-display); font-size: 0.78rem; text-transform: uppercase; color: var(--muted-ink); font-weight: 700; }
 .detail-list dd { margin: 0; font-weight: 600; }
-.action-row { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+.action-row { display: flex; gap: 0.85rem; flex-wrap: wrap; margin-bottom: 1rem; }
 .action-row form { margin: 0; }
 .profile-header { margin-bottom: 1.5rem; }
 .profile-header h1 { display: inline-block; }
@@ -518,7 +521,31 @@ a.track:hover { text-decoration: underline; text-underline-offset: 3px; }
     .detail-list { grid-template-columns: 1fr; gap: 0.1rem 0; }
     .detail-list dd { margin-bottom: 0.6rem; }
 
-    /* Hero actions and pager stay wrap-friendly (already are) — just trim spacing. */
+    /* -------- heatmap (stats page) -------- */
+.heatmap-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.heatmap { table-layout: auto; border-collapse: separate; border-spacing: 2px; width: 100%; }
+.heatmap-header {
+    font-family: var(--font-display); font-size: 0.7rem; font-weight: 700;
+    text-transform: uppercase; text-align: center;
+    color: var(--muted-ink); padding-bottom: 2px;
+}
+.heatmap-label {
+    font-family: var(--font-display); font-size: 0.7rem; font-weight: 700;
+    color: var(--muted-ink); text-transform: uppercase;
+    text-align: right; padding-right: 6px; width: 1px; white-space: nowrap;
+}
+.heatmap-label-col { width: 1px; }
+.heatmap-cell {
+    border-radius: 3px; border: 2px solid var(--panel);
+    width: calc(100% / 24); height: 0; padding-bottom: calc(100% / 24); position: relative;
+}
+.heatmap-cell::after {
+    content: ''; position: absolute; inset: 0; border-radius: 1px;
+    background: inherit;
+}
+.heatmap-cell:hover { filter: brightness(0.88); }
+
+/* Hero actions and pager stay wrap-friendly (already are) — just trim spacing. */
     .hero { padding: 1rem 0.5rem 1.5rem; }
     .actions { gap: 0.6rem; }
 }

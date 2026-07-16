@@ -164,9 +164,11 @@ public static class UiFormEndpoints
         {
             if (!await Valid(antiforgery, context)) return Results.BadRequest();
             var result = await scrobbles.DeleteAsync(context.User.GetUserId()!.Value, id, context.RequestAborted);
+            var form = await context.Request.ReadFormAsync();
+            var returnQuery = BuildReturnQuery(form);
             return result.Succeeded
-                ? Results.LocalRedirect("/recent?deleted=1")
-                : Results.LocalRedirect($"/recent?error={Uri.EscapeDataString(result.Message ?? "Failed.")}");
+                ? Results.LocalRedirect("/recent?deleted=1" + returnQuery)
+                : Results.LocalRedirect($"/recent?error={Uri.EscapeDataString(result.Message ?? "Failed.")}" + returnQuery);
         }).RequireAuthorization();
 
         // ---- Admin ----
@@ -240,6 +242,15 @@ public static class UiFormEndpoints
             return Results.LocalRedirect("/admin/trackcache");
         });
 
+        trackCache.MapPost("/delete-all", async (
+            HttpContext ctx, IAntiforgery af, ITrackInfoRepository trackInfo, IUnitOfWork unitOfWork) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var deleted = await trackInfo.DeleteAllAsync(ctx.RequestAborted);
+            await unitOfWork.SaveChangesAsync(ctx.RequestAborted);
+            return Results.LocalRedirect($"/admin/trackcache?deletedAll={deleted}");
+        });
+
         // ---- Admin: retry cache (failed relays) ----
         var relayRetries = app.MapGroup("/admin/relayretries").RequireAuthorization(adminPolicy);
 
@@ -311,6 +322,16 @@ public static class UiFormEndpoints
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string BuildReturnQuery(IFormCollection form)
+    {
+        var parts = new List<string>();
+        if (form.TryGetValue("page", out var pageVal) && pageVal.Count > 0) parts.Add($"page={pageVal}");
+        if (form.TryGetValue("from", out var fromVal) && fromVal.Count > 0) parts.Add($"from={fromVal}");
+        if (form.TryGetValue("to", out var toVal) && toVal.Count > 0) parts.Add($"to={toVal}");
+        if (form.TryGetValue("search", out var searchVal) && searchVal.Count > 0) parts.Add($"search={Uri.EscapeDataString(searchVal!)}");
+        return parts.Count > 0 ? "&" + string.Join("&", parts) : "";
+    }
 
     private static IResult RedirectConnections(Scrobblint.Application.Common.Result result) =>
         result.Succeeded

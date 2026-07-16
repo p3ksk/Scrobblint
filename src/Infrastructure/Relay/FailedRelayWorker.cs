@@ -116,6 +116,17 @@ public sealed class FailedRelayWorker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrying failed relay {Id}", item.Id);
+
+                // Bump the retry count even when the retry itself threw, so the record is
+                // eventually marked as permanently failed rather than stuck in a loop.
+                try
+                {
+                    await BumpRetryShallowAsync(item, ex.Message, cancellationToken);
+                }
+                catch (Exception bumpEx)
+                {
+                    _logger.LogError(bumpEx, "Failed to bump retry count for relay {Id}", item.Id);
+                }
             }
         }
     }
@@ -175,7 +186,16 @@ public sealed class FailedRelayWorker : BackgroundService
                 await BumpRetryAsync(repo, unitOfWork, item, result.Error, cancellationToken);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (TaskCanceledException ex) when (ex.CancellationToken != cancellationToken)
+        {
+            // HttpClient timeout — treat as a transient failure, bump retry count.
+            await BumpRetryAsync(repo, unitOfWork, item, "The request timed out.", cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
         {
             await BumpRetryAsync(repo, unitOfWork, item, ex.Message, cancellationToken);
         }
@@ -219,5 +239,19 @@ public sealed class FailedRelayWorker : BackgroundService
         item.LastError = error;
         item.UpdatedAt = DateTime.UtcNow;
         await unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>Bumps retry count with a fresh scope (used when the original retry attempt itself threw).</summary>
+    private async Task BumpRetryShallowAsync(FailedRelay item, string error, CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IFailedRelayRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+        // Re-fetch the entity within the fresh scope so it's tracked.
+        var fresh = await repo.GetByIdAsync(item.Id, cancellationToken);
+        if (fresh is null) return;
+
+        await BumpRetryAsync(repo, unitOfWork, fresh, error, cancellationToken);
     }
 }

@@ -8,14 +8,26 @@
 <h1>Track cache</h1>
 
 <div class="card">
-    <form method="get" action="/admin/trackcache" class="search-form">
-        <input name="search" value="@Search" placeholder="Search artist or track…" />
-        <button class="btn" type="submit">Search</button>
-        @if (!string.IsNullOrWhiteSpace(Search))
-        {
-            <a class="btn" href="/admin/trackcache">Clear</a>
-        }
-    </form>
+    @if (DeletedAll is > 0)
+    {
+        <div class="alert alert-success">@DeletedAll entry(ies) deleted.</div>
+    }
+
+    <div class="action-row">
+        <form method="get" action="/admin/trackcache" class="search-form">
+            <input name="search" value="@Search" placeholder="Search artist or track…" />
+            <button class="btn" type="submit">Search</button>
+            @if (!string.IsNullOrWhiteSpace(Search))
+            {
+                <a class="btn" href="/admin/trackcache">Clear</a>
+            }
+        </form>
+        <form method="post" action="/admin/trackcache/delete-all"
+              onsubmit="return confirm('Delete ALL track cache entries? The cache will repopulate as scrobbles come in.');">
+            <AntiforgeryToken />
+            <button class="btn btn-danger" type="submit">Remove all</button>
+        </form>
+    </div>
 
     @if (_items is null)
     {
@@ -72,6 +84,7 @@
 @code {
     [SupplyParameterFromQuery] private int? Page { get; set; }
     [SupplyParameterFromQuery] private string? Search { get; set; }
+    [SupplyParameterFromQuery] private int? DeletedAll { get; set; }
 
     private IReadOnlyList<TrackInfo>? _items;
     private int _page = 1;

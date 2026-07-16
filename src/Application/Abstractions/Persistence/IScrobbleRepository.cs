@@ -22,9 +22,9 @@ public interface IScrobbleRepository
     Task<HashSet<string>> GetExistingKeysAsync(
         Guid userId, DateTime fromUtc, DateTime toUtc, CancellationToken cancellationToken = default);
 
-    /// <summary>Most recent listens for a user, newest first, paged in the database.</summary>
+    /// <summary>Most recent listens for a user, newest first, paged in the database. Supports optional date range filtering and search.</summary>
     Task<(IReadOnlyList<Scrobble> Items, int TotalCount)> GetRecentAsync(
-        Guid userId, int page, int pageSize, CancellationToken cancellationToken = default);
+        Guid userId, int page, int pageSize, DateTime? from = null, DateTime? to = null, string? search = null, CancellationToken cancellationToken = default);
 
     Task<Scrobble?> GetLatestAsync(Guid userId, CancellationToken cancellationToken = default);
 
@@ -59,6 +59,10 @@ public interface IScrobbleRepository
 
     /// <summary>Listens grouped by day of week (UTC), all seven days including zeros.</summary>
     Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(
+        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Returns an 8×24 heatmap grid: row 0 is the hourly average, rows 1-7 are Monday-Sunday, columns are hours 0-23 UTC.</summary>
+    Task<IReadOnlyList<IReadOnlyList<int>>> GetDayHourHeatmapAsync(
         Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     /// <summary>Listens grouped by calendar year (UTC), oldest first.</summary>

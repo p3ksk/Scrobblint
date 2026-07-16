@@ -65,4 +65,9 @@ public sealed class TrackInfoRepository : ITrackInfoRepository
 
     public void Update(TrackInfo info) => _context.TrackInfos.Update(info);
     public void Delete(TrackInfo info) => _context.TrackInfos.Remove(info);
+
+    public async Task<int> DeleteAllAsync(CancellationToken cancellationToken = default)
+    {
+        return await _context.TrackInfos.ExecuteDeleteAsync(cancellationToken);
+    }
 }

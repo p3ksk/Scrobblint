@@ -12,13 +12,33 @@
     <div class="alert alert-success">Scrobble deleted.</div>
 }
 
+<div class="card">
+    <nav class="settings-nav" aria-label="Date range presets">
+        <a class='settings-tab @PresetClass(IsAllTime)' href="@RangeHref(null, null, _search)">All time</a>
+        <a class='settings-tab @PresetClass(IsLast7)' href="@RangeHref(SevenDaysAgo, Today, _search)">Last 7 days</a>
+        <a class='settings-tab @PresetClass(IsLast30)' href="@RangeHref(ThirtyDaysAgo, Today, _search)">Last 30 days</a>
+        <a class='settings-tab @PresetClass(IsThisYear)' href="@RangeHref(ThisYearStart, Today, _search)">This year</a>
+        <a class='settings-tab @PresetClass(IsLastYear)' href="@RangeHref(LastYearStart, LastYearEnd, _search)">Last year</a>
+    </nav>
+    <form method="get" action="/recent" class="filter-form">
+        <label>From <input type="date" name="from" value="@_fromParam" /></label>
+        <label>To <input type="date" name="to" value="@_toParam" /></label>
+        <input type="text" name="search" placeholder="Search tracks, artists, albums…" value="@_search" />
+        <button type="submit" class="btn btn-primary">Apply</button>
+        @if (!IsAllTime || !string.IsNullOrWhiteSpace(_search))
+        {
+            <a class="btn" href="/recent">Clear</a>
+        }
+    </form>
+</div>
+
 @if (_page is null)
 {
     <p>Loading…</p>
 }
 else if (_page.TotalCount == 0)
 {
-    <div class="card"><p class="muted">No scrobbles yet.</p></div>
+    <div class="card"><p class="muted">No scrobbles found.</p></div>
 }
 else
 {
@@ -54,6 +74,10 @@ else
                         <td>
                             <form method="post" action="/account/scrobbles/@s.Id/delete" class="inline-form">
                                 <AntiforgeryToken />
+                                <input type="hidden" name="from" value="@_fromParam" />
+                                <input type="hidden" name="to" value="@_toParam" />
+                                <input type="hidden" name="search" value="@_search" />
+                                <input type="hidden" name="page" value="@(_page.Page)" />
                                 <button type="submit" class="btn btn-danger btn-sm">Delete</button>
                             </form>
                         </td>
@@ -66,12 +90,12 @@ else
         <div class="pager">
             @if (_page.HasPrevious)
             {
-                <a class="btn" href="/recent?page=@(_page.Page - 1)">← Previous</a>
+                <a class="btn" href="@PageHref(_page.Page - 1)">← Previous</a>
             }
             <span class="muted">Page @_page.Page of @_page.TotalPages (@_page.TotalCount total)</span>
             @if (_page.HasNext)
             {
-                <a class="btn" href="/recent?page=@(_page.Page + 1)">Next →</a>
+                <a class="btn" href="@PageHref(_page.Page + 1)">Next →</a>
             }
         </div>
     </div>
@@ -81,17 +105,64 @@ else
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
     [SupplyParameterFromQuery] private int? Page { get; set; }
     [SupplyParameterFromQuery(Name = "deleted")] private int? Deleted { get; set; }
+    [SupplyParameterFromQuery(Name = "from")] private string? _fromParam { get; set; }
+    [SupplyParameterFromQuery(Name = "to")] private string? _toParam { get; set; }
+    [SupplyParameterFromQuery(Name = "search")] private string? _search { get; set; }
 
     private PagedResponse<ScrobbleResponse>? _page;
     private Dictionary<Guid, string?> _albumCovers = new();
     private bool _deleted;
+
+    // Preset date strings (UTC)
+    private static string Today => DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
+    private static string SevenDaysAgo => DateTime.UtcNow.Date.AddDays(-7).ToString("yyyy-MM-dd");
+    private static string ThirtyDaysAgo => DateTime.UtcNow.Date.AddDays(-30).ToString("yyyy-MM-dd");
+    private static string ThisYearStart => new DateTime(DateTime.UtcNow.Year, 1, 1).ToString("yyyy-MM-dd");
+    private static string LastYearStart => new DateTime(DateTime.UtcNow.Year - 1, 1, 1).ToString("yyyy-MM-dd");
+    private static string LastYearEnd => new DateTime(DateTime.UtcNow.Year - 1, 12, 31).ToString("yyyy-MM-dd");
+
+    private bool IsAllTime => _fromParam is null && _toParam is null;
+    private bool IsLast7 => _fromParam == SevenDaysAgo && _toParam == Today;
+    private bool IsLast30 => _fromParam == ThirtyDaysAgo && _toParam == Today;
+    private bool IsThisYear => _fromParam == ThisYearStart && _toParam == Today;
+    private bool IsLastYear => _fromParam == LastYearStart && _toParam == LastYearEnd;
+
+    private DateTime? FromUtc => ParseDateParam(_fromParam);
+    private DateTime? ToUtc => ParseDateParam(_toParam)?.AddDays(1);
+
+    private static DateTime? ParseDateParam(string? s) =>
+        !string.IsNullOrEmpty(s) && DateTime.TryParseExact(s, "yyyy-MM-dd", null,
+            System.Globalization.DateTimeStyles.None, out var d)
+            ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
+            : null;
+
+    private string PresetClass(bool active) => active ? "active" : "";
+
+    private string RangeHref(string? from, string? to, string? search)
+    {
+        var parts = new List<string>();
+        if (from is not null) parts.Add($"from={from}");
+        if (to is not null) parts.Add($"to={to}");
+        if (!string.IsNullOrWhiteSpace(search)) parts.Add($"search={Uri.EscapeDataString(search)}");
+        return parts.Count > 0 ? "/recent?" + string.Join("&", parts) : "/recent";
+    }
+
+    private string PageHref(int page)
+    {
+        var parts = new List<string> { $"page={page}" };
+        if (_fromParam is not null) parts.Add($"from={_fromParam}");
+        if (_toParam is not null) parts.Add($"to={_toParam}");
+        if (!string.IsNullOrWhiteSpace(_search)) parts.Add($"search={Uri.EscapeDataString(_search)}");
+        return "/recent?" + string.Join("&", parts);
+    }
 
     protected override async Task OnInitializedAsync()
     {
         _deleted = Deleted == 1;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
-        var result = await Scrobbles.GetRecentAsync(user.GetUsername()!, Page ?? 1, 50, viewer);
+        var result = await Scrobbles.GetRecentAsync(user.GetUsername()!, Page ?? 1, 50, viewer,
+            FromUtc, ToUtc, _search);
         if (result.Succeeded) _page = result.Value;
 
         if (_page?.Items is { Count: > 0 } items)
@@ -105,3 +176,4 @@ else
         }
     }
 }
+

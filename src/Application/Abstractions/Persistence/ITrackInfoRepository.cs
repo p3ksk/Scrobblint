@@ -11,4 +11,5 @@ public interface ITrackInfoRepository
     Task<(IReadOnlyList<TrackInfo> Items, int Total)> ListAsync(int page, int pageSize, string? search, CancellationToken cancellationToken = default);
     void Update(TrackInfo info);
     void Delete(TrackInfo info);
+    Task<int> DeleteAllAsync(CancellationToken cancellationToken = default);
 }

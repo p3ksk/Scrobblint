@@ -30,7 +30,7 @@ public static class UserEndpoints
                 page ?? 1,
                 pageSize ?? AppConstants.DefaultPageSize,
                 ViewerContextFactory.From(user),
-                ct);
+                cancellationToken: ct);
             return result.ToHttpResult();
         })
         .AllowAnonymous()

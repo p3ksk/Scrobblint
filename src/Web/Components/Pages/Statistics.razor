@@ -92,6 +92,7 @@ else
             <a class='settings-tab @TabClass("hourly")' href="/stats?@ChartTabQuery("hourly")">Hourly</a>
             <a class='settings-tab @TabClass("weekly")' href="/stats?@ChartTabQuery("weekly")">Day of week</a>
             <a class='settings-tab @TabClass("yearly")' href="/stats?@ChartTabQuery("yearly")">Yearly</a>
+            <a class='settings-tab @TabClass("heatmap")' href="/stats?@ChartTabQuery("heatmap")">Heatmap</a>
         </nav>
 
         @switch (_tab ?? "monthly")
@@ -137,6 +138,9 @@ else
             case "yearly":
                 <h2>Yearly chart</h2>
                 @RenderBars(_stats.YearlyChart)
+                break;
+            case "heatmap":
+                @RenderHeatmap(_stats)
                 break;
         }
     </div>
@@ -291,4 +295,113 @@ else
         }
         builder.CloseElement();
     };
+
+    private RenderFragment RenderHeatmap(StatsResponse stats) => builder =>
+    {
+        var heatmap = stats.DayHourHeatmap;
+        if (heatmap is null)
+        {
+            builder.AddMarkupContent(0, "<p class=\"muted\">No heatmap data.</p>");
+            return;
+        }
+        var rows = heatmap.Rows;
+        if (rows.Count < 8)
+        {
+            builder.AddMarkupContent(0, "<p class=\"muted\">No heatmap data.</p>");
+            return;
+        }
+
+        var allValues = rows.SelectMany(r => r).ToList();
+        var maxVal = allValues.Count > 0 ? allValues.Max() : 1;
+        string[] dayLabels = { "Average", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", "heatmap-wrapper");
+
+        // Legend
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "style", "display:flex;align-items:center;gap:4px;font-size:0.75rem;margin-bottom:0.75rem;color:var(--muted-ink)");
+        builder.AddContent(4, "0");
+        builder.OpenElement(5, "div");
+        builder.AddAttribute(6, "style", $"width:120px;height:12px;background:linear-gradient(to right,{HeatColor(0, maxVal)},{HeatColor(maxVal, maxVal)});border:var(--bd-thin)");
+        builder.CloseElement();
+        builder.AddContent(7, maxVal.ToString());
+        builder.CloseElement();
+
+        // Table
+        builder.OpenElement(8, "table");
+        builder.AddAttribute(9, "class", "heatmap");
+
+        // Header
+        builder.OpenElement(10, "thead");
+        builder.OpenElement(11, "tr");
+        builder.OpenElement(12, "th");
+        builder.AddAttribute(13, "class", "heatmap-label-col");
+        builder.CloseElement();
+        for (var h = 0; h < 24; h++)
+        {
+            builder.OpenElement(14 + h, "th");
+            builder.AddAttribute(15 + h, "class", "heatmap-header");
+            builder.AddContent(16 + h, h.ToString("D2"));
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+
+        // Body
+        builder.OpenElement(50, "tbody");
+        for (var d = 0; d < 8; d++)
+        {
+            builder.OpenElement(51 + d, "tr");
+            builder.OpenElement(52 + d, "td");
+            builder.AddAttribute(53 + d, "class", "heatmap-label");
+            builder.AddContent(54 + d, dayLabels[d]);
+            builder.CloseElement();
+
+            for (var h = 0; h < 24; h++)
+            {
+                var val = rows[d][h];
+                builder.OpenElement(100 + d * 30 + h, "td");
+                builder.AddAttribute(101 + d * 30 + h, "class", "heatmap-cell");
+                builder.AddAttribute(102 + d * 30 + h, "style", $"background-color:{HeatColor(val, maxVal)}");
+                builder.AddAttribute(103 + d * 30 + h, "title", $"{dayLabels[d]} {h:D2}:00 — {val} scrobble{(val == 1 ? "" : "s")}");
+                builder.CloseElement();
+            }
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+
+        builder.CloseElement(); // table
+        builder.CloseElement(); // wrapper
+    };
+
+    private static string HeatColor(int value, int max)
+    {
+        var t = Math.Clamp(value / (double)max, 0.0, 1.0);
+        // Pale yellow (#fef7e0) → --yellow (#ffd23f) → --coral (#ff5d5d) → deep red (#a01010)
+        // High contrast across the full range, matching app palette
+        int r, g, b;
+        if (t <= 0.33)
+        {
+            var s = t / 0.33;
+            r = 255;
+            g = (int)(247 + s * (210 - 247));
+            b = (int)(224 + s * (63 - 224));
+        }
+        else if (t <= 0.66)
+        {
+            var s = (t - 0.33) / 0.33;
+            r = 255;
+            g = (int)(210 + s * (93 - 210));
+            b = (int)(63 + s * (93 - 63));
+        }
+        else
+        {
+            var s = (t - 0.66) / 0.34;
+            r = (int)(255 + s * (160 - 255));
+            g = (int)(93 + s * (16 - 93));
+            b = (int)(93 + s * (16 - 93));
+        }
+        return $"rgb({r},{g},{b})";
+    }
 }
