@@ -15,6 +15,10 @@ public class UserSettings
 
     public Theme Theme { get; set; } = Theme.System;
 
+    public string? TrackIgnoreRegex { get; set; }
+    public string? ArtistIgnoreRegex { get; set; }
+    public string? AlbumIgnoreRegex { get; set; }
+
     // Navigation property
     public User? User { get; set; }
 }

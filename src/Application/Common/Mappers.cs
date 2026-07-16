@@ -23,7 +23,8 @@ public static class Mappers
         s.Artist, s.Track, s.Album, ToUnix(s.Timestamp));
 
     public static UserSettingsDto ToDto(this UserSettings settings) =>
-        new(settings.ProfileVisibility, settings.Theme);
+        new(settings.ProfileVisibility, settings.Theme,
+            settings.TrackIgnoreRegex, settings.ArtistIgnoreRegex, settings.AlbumIgnoreRegex);
 
     /// <summary>Counts entries in a <c>FailedRelay.TracksJson</c> array, tolerating malformed payloads.</summary>
     public static int CountRelayTracks(string tracksJson)

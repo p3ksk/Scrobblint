@@ -63,7 +63,7 @@ public sealed class TestHost : IDisposable
         Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, PipelineQueue, new IScrobbleRelay[] { Lastfm }, Clock, cache, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo);
         Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, NullLogger<UserService>.Instance);
-        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, cache, NullLogger<ScrobbleImportService>.Instance);
+        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, settingsRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, cache, NullLogger<ScrobbleImportService>.Instance);
     }
 
     /// <summary>

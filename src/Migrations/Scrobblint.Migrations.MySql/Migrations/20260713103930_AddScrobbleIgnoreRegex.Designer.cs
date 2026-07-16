@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Scrobblint.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using Scrobblint.Infrastructure.Persistence;
 namespace Scrobblint.Migrations.MySql.Migrations
 {
     [DbContext(typeof(ScrobblintDbContext))]
-    partial class ScrobblintDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713103930_AddScrobbleIgnoreRegex")]
+    partial class AddScrobbleIgnoreRegex
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

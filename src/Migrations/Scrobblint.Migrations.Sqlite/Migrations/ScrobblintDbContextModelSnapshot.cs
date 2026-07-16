@@ -296,11 +296,23 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AlbumIgnoreRegex")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ArtistIgnoreRegex")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ProfileVisibility")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Theme")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("TrackIgnoreRegex")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("TEXT");

@@ -73,6 +73,7 @@ public sealed class ScrobbleService : IScrobbleService
             var artist = item.Artist?.Trim() ?? string.Empty;
             var track = item.Track?.Trim() ?? string.Empty;
             var album = string.IsNullOrWhiteSpace(item.Album) ? null : item.Album!.Trim();
+            if (album == "?") album = null;
 
             if (string.IsNullOrEmpty(artist)) validation.Add($"scrobbles[{i}].artist", "Artist is required.");
             if (string.IsNullOrEmpty(track)) validation.Add($"scrobbles[{i}].track", "Track is required.");
@@ -97,6 +98,30 @@ public sealed class ScrobbleService : IScrobbleService
 
         if (validation.HasErrors)
             return Result<ScrobbleSubmitResponse>.Invalid(validation.Build());
+
+        var userSettings = await _settings.GetByUserIdAsync(userId, cancellationToken);
+        if (userSettings is not null &&
+            (userSettings.ArtistIgnoreRegex is not null ||
+             userSettings.TrackIgnoreRegex is not null ||
+             userSettings.AlbumIgnoreRegex is not null))
+        {
+            var filtered = entities
+                .Where(e => !ScrobbleIgnoreFilter.ShouldIgnore(
+                    e.Artist, e.Track, e.Album,
+                    userSettings.ArtistIgnoreRegex,
+                    userSettings.TrackIgnoreRegex,
+                    userSettings.AlbumIgnoreRegex))
+                .ToList();
+
+            var dropped = entities.Count - filtered.Count;
+            if (dropped > 0)
+                _logger.LogInformation("Dropped {Count} scrobble(s) matching ignore rules for user {UserId}", dropped, userId);
+
+            entities = filtered;
+        }
+
+        if (entities.Count == 0)
+            return Result<ScrobbleSubmitResponse>.Ok(new ScrobbleSubmitResponse(0));
 
         // Queue scrobbles for processing pipeline: Stage 1 (Enrich) → Stage 2 (Save) → Stage 3 (Relay)
         // This ensures:

@@ -18,6 +18,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
     private readonly IScrobbleImportRepository _imports;
     private readonly IExternalConnectionRepository _connections;
     private readonly IScrobbleRepository _scrobbles;
+    private readonly IUserSettingsRepository _settings;
     private readonly ILastfmRelay _lastfm;
     private readonly IScrobbleImportQueue _queue;
     private readonly IUnitOfWork _unitOfWork;
@@ -29,6 +30,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         IScrobbleImportRepository imports,
         IExternalConnectionRepository connections,
         IScrobbleRepository scrobbles,
+        IUserSettingsRepository settings,
         ILastfmRelay lastfm,
         IScrobbleImportQueue queue,
         IUnitOfWork unitOfWork,
@@ -39,6 +41,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         _imports = imports;
         _connections = connections;
         _scrobbles = scrobbles;
+        _settings = settings;
         _lastfm = lastfm;
         _queue = queue;
         _unitOfWork = unitOfWork;
@@ -163,9 +166,12 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         var maxUtc = Mappers.FromUnix(tracks.Max(t => t.ListenedAtUnix));
         var existing = await _scrobbles.GetExistingKeysAsync(import.UserId, minUtc, maxUtc, cancellationToken);
 
+        var userSettings = await _settings.GetByUserIdAsync(import.UserId, cancellationToken);
+
         var now = _clock.UtcNow;
         var toInsert = new List<Scrobble>(tracks.Count);
         var duplicates = 0;
+        var ignored = 0;
 
         foreach (var t in tracks)
         {
@@ -175,12 +181,24 @@ public sealed class ScrobbleImportService : IScrobbleImportService
                 duplicates++;
                 continue;
             }
+
+            if (userSettings is not null &&
+                ScrobbleIgnoreFilter.ShouldIgnore(
+                    t.Artist, t.Track, t.Album,
+                    userSettings.ArtistIgnoreRegex,
+                    userSettings.TrackIgnoreRegex,
+                    userSettings.AlbumIgnoreRegex))
+            {
+                ignored++;
+                continue;
+            }
+
             toInsert.Add(new Scrobble
             {
                 UserId = import.UserId,
                 Artist = t.Artist,
                 Track = t.Track,
-                Album = string.IsNullOrWhiteSpace(t.Album) ? null : t.Album,
+                Album = string.IsNullOrWhiteSpace(t.Album) || t.Album.Trim() == "?" ? null : t.Album.Trim(),
                 Timestamp = Mappers.FromUnix(t.ListenedAtUnix),
                 CreatedAt = now
             });
@@ -191,6 +209,9 @@ public sealed class ScrobbleImportService : IScrobbleImportService
 
         import.ImportedCount += toInsert.Count;
         import.DuplicateCount += duplicates;
+
+        if (ignored > 0)
+            _logger.LogInformation("Dropped {Count} imported scrobble(s) matching ignore rules for user {UserId}", ignored, import.UserId);
     }
 
     private ImportStatusDto Map(ScrobbleImport i) => new(

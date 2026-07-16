@@ -78,6 +78,17 @@ public sealed class EnrichmentStageWorker : BackgroundService
             return scrobble;
         }
 
+        // Enrichment exists to fill in a missing album. When the client already supplied a real one,
+        // there's nothing to gain from querying the metadata provider — skip the call entirely
+        // rather than hitting Last.fm (and the DB cache) once per scrobble.
+        // Treat empty, whitespace-only, and placeholder "?" values as missing.
+        var album = scrobble.Album?.Trim();
+        if (!string.IsNullOrEmpty(album) && album != "?")
+        {
+            _logger.LogDebug("Album already present for {Artist} - {Track}, skipping enrichment", scrobble.Artist, scrobble.Track);
+            return scrobble;
+        }
+
         try
         {
             var metadata = await GetOrFetchMetadataAsync(scrobble, cancellationToken);
@@ -104,10 +115,9 @@ public sealed class EnrichmentStageWorker : BackgroundService
                 enrichedTrack = metadata.Track;
             }
 
-            // Only fill in album from Last.fm when the client didn't supply one.
-            // Last.fm maps every track to a single canonical release, but the user's player
-            // knows which album they're actually listening to — don't clobber that.
-            if (!string.IsNullOrWhiteSpace(metadata.Album) && string.IsNullOrWhiteSpace(scrobble.Album))
+            // Fill in the missing album from Last.fm. We only reach this path when the client
+            // didn't supply one (see the early return above), so there's nothing to clobber.
+            if (!string.IsNullOrWhiteSpace(metadata.Album))
             {
                 changes.Add($"album: (empty) -> '{metadata.Album}'");
                 enrichedAlbum = metadata.Album;

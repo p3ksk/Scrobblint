@@ -15,6 +15,10 @@ public sealed class UserSettingsConfiguration : IEntityTypeConfiguration<UserSet
         builder.Property(s => s.ProfileVisibility).HasConversion<int>().IsRequired();
         builder.Property(s => s.Theme).HasConversion<int>().IsRequired();
 
+        builder.Property(s => s.TrackIgnoreRegex).HasMaxLength(500);
+        builder.Property(s => s.ArtistIgnoreRegex).HasMaxLength(500);
+        builder.Property(s => s.AlbumIgnoreRegex).HasMaxLength(500);
+
         builder.HasIndex(s => s.UserId).IsUnique();
     }
 }

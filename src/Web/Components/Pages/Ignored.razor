@@ -1,0 +1,55 @@
+@page "/settings/ignored"
+@attribute [Authorize]
+@inject IUserService Users
+
+<PageTitle>Ignored scrobbles — Scrobblint</PageTitle>
+
+<h1>Settings</h1>
+
+<SettingsNav />
+
+<div class="card narrow">
+    @if (Saved == 1)
+    {
+        <div class="alert alert-success">Saved.</div>
+    }
+
+    @if (_settings is null)
+    {
+        <p>Loading…</p>
+    }
+    else
+    {
+        <form method="post" action="/account/settings/ignored">
+            <AntiforgeryToken />
+            <p class="muted">Scrobbles matching any of these patterns will be silently dropped. Uses .NET regular expressions (case-insensitive).</p>
+            <label>
+                Artist regex
+                <input type="text" name="artistIgnoreRegex" value="@_settings.ArtistIgnoreRegex" />
+            </label>
+            <label>
+                Track regex
+                <input type="text" name="trackIgnoreRegex" value="@_settings.TrackIgnoreRegex" />
+            </label>
+            <label>
+                Album regex
+                <input type="text" name="albumIgnoreRegex" value="@_settings.AlbumIgnoreRegex" />
+            </label>
+            <button class="btn btn-primary" type="submit">Save</button>
+        </form>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [SupplyParameterFromQuery] private int? Saved { get; set; }
+
+    private UserSettingsDto? _settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = (await AuthState!).User;
+        var result = await Users.GetSettingsAsync(user.GetUserId()!.Value);
+        _settings = result.Succeeded ? result.Value : new UserSettingsDto(ProfileVisibility.Public, Theme.System);
+    }
+}

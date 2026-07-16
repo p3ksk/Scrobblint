@@ -87,6 +87,9 @@ public sealed class UserService : IUserService
 
         settings.ProfileVisibility = dto.ProfileVisibility;
         settings.Theme = dto.Theme;
+        settings.TrackIgnoreRegex = string.IsNullOrWhiteSpace(dto.TrackIgnoreRegex) ? null : dto.TrackIgnoreRegex.Trim();
+        settings.ArtistIgnoreRegex = string.IsNullOrWhiteSpace(dto.ArtistIgnoreRegex) ? null : dto.ArtistIgnoreRegex.Trim();
+        settings.AlbumIgnoreRegex = string.IsNullOrWhiteSpace(dto.AlbumIgnoreRegex) ? null : dto.AlbumIgnoreRegex.Trim();
         _settings.Update(settings);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

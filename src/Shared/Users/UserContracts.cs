@@ -14,7 +14,12 @@ public sealed record UserProfileResponse(
 public sealed record ScrobbleResponseLite(string Artist, string Track, string? Album, long Timestamp);
 
 /// <summary>User preferences read/written by the settings page.</summary>
-public sealed record UserSettingsDto(ProfileVisibility ProfileVisibility, Theme Theme);
+public sealed record UserSettingsDto(
+    ProfileVisibility ProfileVisibility,
+    Theme Theme,
+    string? TrackIgnoreRegex = null,
+    string? ArtistIgnoreRegex = null,
+    string? AlbumIgnoreRegex = null);
 
 /// <summary>Row in the admin user list.</summary>
 public sealed record AdminUserListItem(

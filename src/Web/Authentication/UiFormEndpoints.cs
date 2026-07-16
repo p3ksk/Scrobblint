@@ -42,8 +42,35 @@ public static class UiFormEndpoints
             var visibility = Enum.TryParse<ProfileVisibility>(form["visibility"], out var v) ? v : ProfileVisibility.Public;
             var theme = Enum.TryParse<Theme>(form["theme"], out var t) ? t : Theme.System;
 
-            await users.UpdateSettingsAsync(context.User.GetUserId()!.Value, new UserSettingsDto(visibility, theme), context.RequestAborted);
+            var userId = context.User.GetUserId()!.Value;
+            var existing = await users.GetSettingsAsync(userId, context.RequestAborted);
+            var dto = new UserSettingsDto(visibility, theme,
+                existing.Value?.TrackIgnoreRegex,
+                existing.Value?.ArtistIgnoreRegex,
+                existing.Value?.AlbumIgnoreRegex);
+
+            await users.UpdateSettingsAsync(userId, dto, context.RequestAborted);
             return Results.LocalRedirect("/settings?saved=1");
+        }).RequireAuthorization();
+
+        app.MapPost("/account/settings/ignored", async (
+            HttpContext context, IAntiforgery antiforgery, IUserService users) =>
+        {
+            if (!await Valid(antiforgery, context)) return Results.BadRequest();
+            var form = await context.Request.ReadFormAsync();
+
+            var userId = context.User.GetUserId()!.Value;
+            var existing = await users.GetSettingsAsync(userId, context.RequestAborted);
+            var visibility = existing.Value?.ProfileVisibility ?? ProfileVisibility.Public;
+            var theme = existing.Value?.Theme ?? Theme.System;
+            var trackIgnoreRegex = NullIfEmpty(form["trackIgnoreRegex"]);
+            var artistIgnoreRegex = NullIfEmpty(form["artistIgnoreRegex"]);
+            var albumIgnoreRegex = NullIfEmpty(form["albumIgnoreRegex"]);
+
+            await users.UpdateSettingsAsync(userId,
+                new UserSettingsDto(visibility, theme, trackIgnoreRegex, artistIgnoreRegex, albumIgnoreRegex),
+                context.RequestAborted);
+            return Results.LocalRedirect("/settings/ignored?saved=1");
         }).RequireAuthorization();
 
         // ---- External connections (relay to Last.fm / ListenBrainz) ----
