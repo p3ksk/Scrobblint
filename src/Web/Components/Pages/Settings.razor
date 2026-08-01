@@ -40,6 +40,21 @@
                     }
                 </select>
             </label>
+            <label>
+                Timezone
+                <select name="timezone">
+                    <option value="">UTC (default)</option>
+                    @foreach (var group in _timezones)
+                    {
+                        <optgroup label="@group.Label">
+                            @foreach (var tz in group.Timezones)
+                            {
+                                <option value="@tz.Id" selected="@(tz.Id == _settings.Timezone)">@tz.DisplayName</option>
+                            }
+                        </optgroup>
+                    }
+                </select>
+            </label>
             <button class="btn btn-primary" type="submit">Save</button>
         </form>
         <p class="muted">
@@ -54,11 +69,23 @@
     [SupplyParameterFromQuery] private int? Saved { get; set; }
 
     private UserSettingsDto? _settings;
+    private List<TimezoneGroup> _timezones = new();
 
     protected override async Task OnInitializedAsync()
     {
         var user = (await AuthState!).User;
         var result = await Users.GetSettingsAsync(user.GetUserId()!.Value);
         _settings = result.Succeeded ? result.Value : new UserSettingsDto(ProfileVisibility.Public, Theme.System);
+
+        _timezones = TimeZoneInfo.GetSystemTimeZones()
+            .GroupBy(tz => tz.BaseUtcOffset)
+            .OrderBy(g => g.Key)
+            .Select(g => new TimezoneGroup(
+                $"UTC{(g.Key >= TimeSpan.Zero ? "+" : "-")}{Math.Abs(g.Key.Hours):D2}:{Math.Abs(g.Key.Minutes):D2}",
+                g.OrderBy(tz => tz.DisplayName).Select(tz => new TimezoneOption(tz.Id, tz.DisplayName)).ToList()))
+            .ToList();
     }
+
+    private sealed record TimezoneGroup(string Label, List<TimezoneOption> Timezones);
+    private sealed record TimezoneOption(string Id, string DisplayName);
 }

@@ -17,7 +17,6 @@ public static class TrackCacheEndpoints
             string? CanonicalArtist,
             string? CanonicalTrack,
             string? CanonicalAlbum,
-            bool? Found,
             ITrackInfoRepository trackInfo,
             IUnitOfWork unitOfWork,
             CancellationToken ct) =>
@@ -29,8 +28,6 @@ public static class TrackCacheEndpoints
             entry.CanonicalArtist = CanonicalArtist;
             entry.CanonicalTrack = CanonicalTrack;
             entry.CanonicalAlbum = CanonicalAlbum;
-            if (Found.HasValue)
-                entry.Found = Found.Value;
 
             trackInfo.Update(entry);
             await unitOfWork.SaveChangesAsync(ct);

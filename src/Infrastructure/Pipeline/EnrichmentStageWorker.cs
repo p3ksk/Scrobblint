@@ -144,8 +144,8 @@ public sealed class EnrichmentStageWorker : BackgroundService
     }
 
     /// <summary>
-    /// Returns track metadata from the DB cache, falling back to the Last.fm API on a miss and caching
-    /// the result (including "not found" misses, so the same unknown track is never re-queried).
+    /// Returns track metadata from the DB cache, falling back to the Last.fm API on a miss.
+    /// Only successful lookups are cached; misses are not persisted.
     /// </summary>
     private async Task<TrackMetadata?> GetOrFetchMetadataAsync(PipelineScrobble scrobble, CancellationToken cancellationToken)
     {
@@ -159,34 +159,33 @@ public sealed class EnrichmentStageWorker : BackgroundService
         if (cached is not null)
         {
             _logger.LogDebug("Track metadata cache hit for {Artist} - {Track}", scrobble.Artist, scrobble.Track);
-            return cached.Found
-                ? new TrackMetadata(cached.CanonicalArtist, cached.CanonicalTrack, cached.CanonicalAlbum)
-                : null;
+            return new TrackMetadata(cached.CanonicalArtist, cached.CanonicalTrack, cached.CanonicalAlbum);
         }
 
         var metadata = await FetchTrackMetadataFromLastfmAsync(scrobble.Artist, scrobble.Track, cancellationToken);
 
-        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        await repository.AddAsync(new TrackInfo
+        if (metadata is not null)
         {
-            ArtistKey = artistKey,
-            TrackKey = trackKey,
-            Found = metadata is not null,
-            CanonicalArtist = metadata?.Artist,
-            CanonicalTrack = metadata?.Track,
-            CanonicalAlbum = metadata?.Album,
-            FetchedAt = DateTime.UtcNow
-        }, cancellationToken);
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            await repository.AddAsync(new TrackInfo
+            {
+                ArtistKey = artistKey,
+                TrackKey = trackKey,
+                CanonicalArtist = metadata.Artist,
+                CanonicalTrack = metadata.Track,
+                CanonicalAlbum = metadata.Album,
+                FetchedAt = DateTime.UtcNow
+            }, cancellationToken);
 
-        try
-        {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException)
-        {
-            // A concurrent insert already cached this (artist, track); the unique index rejected ours.
-            // The metadata we just fetched is still valid to use, so swallow and continue.
-            _logger.LogDebug("Track metadata cache entry already present for {Artist} - {Track}", scrobble.Artist, scrobble.Track);
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // A concurrent insert already cached this (artist, track); the unique index rejected ours.
+                _logger.LogDebug("Track metadata cache entry already present for {Artist} - {Track}", scrobble.Artist, scrobble.Track);
+            }
         }
 
         return metadata;

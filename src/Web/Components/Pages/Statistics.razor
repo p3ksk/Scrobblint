@@ -148,6 +148,7 @@ else
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] private string? _tab { get; set; }
     [SupplyParameterFromQuery(Name = "monthlyPage")] private int _monthlyPage { get; set; }
     [SupplyParameterFromQuery(Name = "from")] private string? _fromParam { get; set; }
@@ -156,6 +157,7 @@ else
     private StatsResponse? _stats;
     private Dictionary<string, string?> _artistImages = new();
     private Dictionary<string, string?> _albumImages = new();
+    private string? _userTimezone;
     private const int MonthlyPageSize = 12;
 
     // Preset date strings (UTC)
@@ -219,6 +221,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        _userTimezone = Timezone;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var result = await Stats.GetStatsAsync(user.GetUsername()!, viewer, FromUtc, ToUtc);
@@ -311,7 +314,18 @@ else
             return;
         }
 
-        var allValues = rows.SelectMany(r => r).ToList();
+        int[][] shifted;
+        if (!string.IsNullOrEmpty(_userTimezone))
+        {
+            try { shifted = Format.ShiftHeatmap(rows, _userTimezone); }
+            catch (TimeZoneNotFoundException) { shifted = rows.Select(r => r.ToArray()).ToArray(); }
+        }
+        else
+        {
+            shifted = rows.Select(r => r.ToArray()).ToArray();
+        }
+
+        var allValues = shifted.SelectMany(r => r).ToList();
         var maxVal = allValues.Count > 0 ? allValues.Max() : 1;
         string[] dayLabels = { "Average", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
 
@@ -360,7 +374,7 @@ else
 
             for (var h = 0; h < 24; h++)
             {
-                var val = rows[d][h];
+                var val = shifted[d][h];
                 builder.OpenElement(100 + d * 30 + h, "td");
                 builder.AddAttribute(101 + d * 30 + h, "class", "heatmap-cell");
                 builder.AddAttribute(102 + d * 30 + h, "style", $"background-color:{HeatColor(val, maxVal)}");

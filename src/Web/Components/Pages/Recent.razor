@@ -70,7 +70,7 @@ else
                                 <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)">@s.Album</a>
                             }
                         </td>
-                        <td class="muted" title="@Format.DateTimeUtc(s.Timestamp)">@Format.Ago(s.Timestamp)</td>
+                        <td class="muted" title="@Format.DateTimeUtc(s.Timestamp, _userTimezone)">@Format.Ago(s.Timestamp)</td>
                         <td>
                             <form method="post" action="/account/scrobbles/@s.Id/delete" class="inline-form">
                                 <AntiforgeryToken />
@@ -112,6 +112,7 @@ else
     private PagedResponse<ScrobbleResponse>? _page;
     private Dictionary<Guid, string?> _albumCovers = new();
     private bool _deleted;
+    private string? _userTimezone;
 
     // Preset date strings (UTC)
     private static string Today => DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
@@ -173,6 +174,10 @@ else
             await Task.WhenAll(tasks.Values);
             foreach (var kvp in tasks)
                 _albumCovers[kvp.Key] = kvp.Value.Result;
+        }
+    }
+}
+
         }
     }
 }

@@ -71,9 +71,9 @@ else if (RetriedAll == 0)
                         <td><RelayStatusBadge Status="r.Status" /></td>
                         <td>@r.TrackCount</td>
                         <td>@r.RetryCount</td>
-                        <td class="muted">@Format.DateTimeUtc(r.NextRetryAt)</td>
+                        <td class="muted">@Format.DateTimeUtc(r.NextRetryAt, _userTimezone)</td>
                         <td class="muted">@(r.LastError ?? "—")</td>
-                        <td class="muted">@Format.DateTimeUtc(r.UpdatedAt)</td>
+                        <td class="muted">@Format.DateTimeUtc(r.UpdatedAt, _userTimezone)</td>
                     </tr>
                 }
             </tbody>
@@ -100,15 +100,18 @@ else if (RetriedAll == 0)
     [SupplyParameterFromQuery] private int? Deleted { get; set; }
     [SupplyParameterFromQuery] private int? RetriedAll { get; set; }
     [SupplyParameterFromQuery] private int? RanNow { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private PagedResponse<AdminFailedRelayListItem>? _page;
     private int _currentPage = 1;
+    private string? _userTimezone;
 
     private void GoToDetail(Guid id) => Nav.NavigateTo($"/admin/retrycache/{id}");
 
     protected override async Task OnInitializedAsync()
     {
         _currentPage = Math.Max(1, Page ?? 1);
+        _userTimezone = Timezone;
         var result = await Admin.GetFailedRelaysAsync(_currentPage, 25);
         if (result.Succeeded) _page = result.Value;
     }

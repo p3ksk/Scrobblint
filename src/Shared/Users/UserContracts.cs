@@ -19,7 +19,8 @@ public sealed record UserSettingsDto(
     Theme Theme,
     string? TrackIgnoreRegex = null,
     string? ArtistIgnoreRegex = null,
-    string? AlbumIgnoreRegex = null);
+    string? AlbumIgnoreRegex = null,
+    string? Timezone = null);
 
 /// <summary>Row in the admin user list.</summary>
 public sealed record AdminUserListItem(

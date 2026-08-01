@@ -16,7 +16,9 @@
 </head>
 
 <body data-enhance-nav="false">
-    <Routes />
+    <CascadingValue Value="_timezone">
+        <Routes />
+    </CascadingValue>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
@@ -25,6 +27,7 @@
 @code {
     // Drives the colour theme: "system" (follow the OS), "light", or "dark".
     private string _theme = "system";
+    private string? _timezone;
 
     protected override async Task OnInitializedAsync()
     {
@@ -33,7 +36,10 @@
         {
             var settings = await Users.GetSettingsAsync(userId);
             if (settings.Succeeded)
+            {
                 _theme = settings.Value!.Theme.ToString().ToLowerInvariant();
+                _timezone = settings.Value!.Timezone;
+            }
         }
     }
 }

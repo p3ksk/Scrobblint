@@ -78,6 +78,18 @@ public sealed class UserService : IUserService
                 [nameof(dto.Theme)] = new[] { "Unknown theme value." }
             });
 
+        if (!string.IsNullOrWhiteSpace(dto.Timezone))
+        {
+            try { TimeZoneInfo.FindSystemTimeZoneById(dto.Timezone.Trim()); }
+            catch (TimeZoneNotFoundException)
+            {
+                return Result<UserSettingsDto>.Invalid(new Dictionary<string, string[]>
+                {
+                    [nameof(dto.Timezone)] = new[] { "Unknown timezone." }
+                });
+            }
+        }
+
         var settings = await _settings.GetByUserIdAsync(userId, cancellationToken);
         if (settings is null)
         {
@@ -90,6 +102,7 @@ public sealed class UserService : IUserService
         settings.TrackIgnoreRegex = string.IsNullOrWhiteSpace(dto.TrackIgnoreRegex) ? null : dto.TrackIgnoreRegex.Trim();
         settings.ArtistIgnoreRegex = string.IsNullOrWhiteSpace(dto.ArtistIgnoreRegex) ? null : dto.ArtistIgnoreRegex.Trim();
         settings.AlbumIgnoreRegex = string.IsNullOrWhiteSpace(dto.AlbumIgnoreRegex) ? null : dto.AlbumIgnoreRegex.Trim();
+        settings.Timezone = string.IsNullOrWhiteSpace(dto.Timezone) ? null : dto.Timezone.Trim();
         _settings.Update(settings);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

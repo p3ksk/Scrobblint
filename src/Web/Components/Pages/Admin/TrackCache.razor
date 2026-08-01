@@ -38,7 +38,7 @@
         <div class="table-scroll">
         <table class="table">
             <thead>
-                <tr><th>Submitted artist</th><th>Submitted track</th><th>Canonical artist</th><th>Canonical track</th><th>Canonical album</th><th>Found</th><th>Fetched</th><th></th></tr>
+                <tr><th>Submitted artist</th><th>Submitted track</th><th>Canonical artist</th><th>Canonical track</th><th>Canonical album</th><th>Fetched</th><th></th></tr>
             </thead>
             <tbody>
                 @foreach (var t in _items)
@@ -49,16 +49,6 @@
                         <td>@(t.CanonicalArtist ?? "—")</td>
                         <td>@(t.CanonicalTrack ?? "—")</td>
                         <td>@(t.CanonicalAlbum ?? "—")</td>
-                        <td>
-                            @if (t.Found)
-                            {
-                                <span class="badge badge-ok">found</span>
-                            }
-                            else
-                            {
-                                <span class="badge badge-danger">miss</span>
-                            }
-                        </td>
                         <td class="muted">@t.FetchedAt.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><a href="/admin/trackcache/@t.Id">Edit</a></td>
                     </tr>

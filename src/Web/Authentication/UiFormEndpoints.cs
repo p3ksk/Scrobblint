@@ -41,13 +41,15 @@ public static class UiFormEndpoints
             var form = await context.Request.ReadFormAsync();
             var visibility = Enum.TryParse<ProfileVisibility>(form["visibility"], out var v) ? v : ProfileVisibility.Public;
             var theme = Enum.TryParse<Theme>(form["theme"], out var t) ? t : Theme.System;
+            var timezone = NullIfEmpty(form["timezone"]);
 
             var userId = context.User.GetUserId()!.Value;
             var existing = await users.GetSettingsAsync(userId, context.RequestAborted);
             var dto = new UserSettingsDto(visibility, theme,
                 existing.Value?.TrackIgnoreRegex,
                 existing.Value?.ArtistIgnoreRegex,
-                existing.Value?.AlbumIgnoreRegex);
+                existing.Value?.AlbumIgnoreRegex,
+                timezone);
 
             await users.UpdateSettingsAsync(userId, dto, context.RequestAborted);
             return Results.LocalRedirect("/settings?saved=1");
@@ -63,12 +65,13 @@ public static class UiFormEndpoints
             var existing = await users.GetSettingsAsync(userId, context.RequestAborted);
             var visibility = existing.Value?.ProfileVisibility ?? ProfileVisibility.Public;
             var theme = existing.Value?.Theme ?? Theme.System;
+            var timezone = existing.Value?.Timezone;
             var trackIgnoreRegex = NullIfEmpty(form["trackIgnoreRegex"]);
             var artistIgnoreRegex = NullIfEmpty(form["artistIgnoreRegex"]);
             var albumIgnoreRegex = NullIfEmpty(form["albumIgnoreRegex"]);
 
             await users.UpdateSettingsAsync(userId,
-                new UserSettingsDto(visibility, theme, trackIgnoreRegex, artistIgnoreRegex, albumIgnoreRegex),
+                new UserSettingsDto(visibility, theme, trackIgnoreRegex, artistIgnoreRegex, albumIgnoreRegex, timezone),
                 context.RequestAborted);
             return Results.LocalRedirect("/settings/ignored?saved=1");
         }).RequireAuthorization();
@@ -219,7 +222,6 @@ public static class UiFormEndpoints
             entry.CanonicalArtist = NullIfEmpty(form["CanonicalArtist"]);
             entry.CanonicalTrack = NullIfEmpty(form["CanonicalTrack"]);
             entry.CanonicalAlbum = NullIfEmpty(form["CanonicalAlbum"]);
-            if (bool.TryParse(form["Found"], out var found)) entry.Found = found;
 
             trackInfo.Update(entry);
             await unitOfWork.SaveChangesAsync(ctx.RequestAborted);

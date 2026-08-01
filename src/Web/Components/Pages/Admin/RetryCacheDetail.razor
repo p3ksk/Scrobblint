@@ -25,10 +25,10 @@ else
             <dt>Provider</dt><dd>@_record.Provider</dd>
             <dt>Status</dt><dd>@_record.Status</dd>
             <dt>Retry count</dt><dd>@_record.RetryCount</dd>
-            <dt>Next retry</dt><dd>@Format.DateTimeUtc(_record.NextRetryAt)</dd>
+            <dt>Next retry</dt><dd>@Format.DateTimeUtc(_record.NextRetryAt, _userTimezone)</dd>
             <dt>Last error</dt><dd>@(_record.LastError ?? "—")</dd>
-            <dt>Created</dt><dd>@Format.DateTimeUtc(_record.CreatedAt)</dd>
-            <dt>Updated</dt><dd>@Format.DateTimeUtc(_record.UpdatedAt)</dd>
+            <dt>Created</dt><dd>@Format.DateTimeUtc(_record.CreatedAt, _userTimezone)</dd>
+            <dt>Updated</dt><dd>@Format.DateTimeUtc(_record.UpdatedAt, _userTimezone)</dd>
         </dl>
     </div>
 
@@ -55,11 +55,14 @@ else
 
 @code {
     [Parameter] public Guid Id { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private AdminFailedRelayDetail? _record;
+    private string? _userTimezone;
 
     protected override async Task OnInitializedAsync()
     {
+        _userTimezone = Timezone;
         var result = await Admin.GetFailedRelayDetailAsync(Id);
         if (result.Succeeded) _record = result.Value;
     }

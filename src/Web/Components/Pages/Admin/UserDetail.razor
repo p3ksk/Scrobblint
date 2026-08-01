@@ -24,7 +24,7 @@ else
     <div class="card narrow">
         <dl class="detail-list">
             <dt>Email</dt><dd>@_user.Email</dd>
-            <dt>Created</dt><dd>@Format.DateTimeUtc(_user.CreatedAt)</dd>
+            <dt>Created</dt><dd>@Format.DateTimeUtc(_user.CreatedAt, _userTimezone)</dd>
             <dt>Scrobbles</dt><dd>@_user.ScrobbleCount</dd>
             <dt>Profile</dt><dd>@_user.ProfileVisibility</dd>
             <dt>Status</dt>
@@ -69,11 +69,14 @@ else
 @code {
     [Parameter] public Guid Id { get; set; }
     [SupplyParameterFromQuery] private int? TokenReset { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private AdminUserDetail? _user;
+    private string? _userTimezone;
 
     protected override async Task OnInitializedAsync()
     {
+        _userTimezone = Timezone;
         var result = await Users.GetUserDetailAsync(Id);
         if (result.Succeeded) _user = result.Value;
     }

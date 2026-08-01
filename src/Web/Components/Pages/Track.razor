@@ -18,7 +18,7 @@ else
         <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
         @if (_detail.FirstPlayed is not null)
         {
-            <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value))</p>
+            <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value), _userTimezone)</p>
         }
         @if (_detail.LastPlayed is not null)
         {
@@ -78,15 +78,18 @@ else
     [SupplyParameterFromQuery] private int? Page { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private TrackDetail? _detail;
     private PagedResponse<ScrobbleResponse>? _recentPage;
     private Dictionary<Guid, string?> _recentAlbumCovers = new();
     private int _page;
+    private string? _userTimezone;
 
     protected override async Task OnInitializedAsync()
     {
         _page = Math.Max(1, Page ?? 1);
+        _userTimezone = Timezone;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var username = user.GetUsername()!;

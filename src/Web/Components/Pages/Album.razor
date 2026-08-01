@@ -97,15 +97,18 @@ else
     [SupplyParameterFromQuery] private int? Page { get; set; }
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private AlbumDetail? _detail;
     private PagedResponse<ScrobbleResponse>? _recentPage;
     private string? _albumCover;
     private int _page;
+    private string? _userTimezone;
 
     protected override async Task OnInitializedAsync()
     {
         _page = Math.Max(1, Page ?? 1);
+        _userTimezone = Timezone;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         var username = user.GetUsername()!;

@@ -21,7 +21,7 @@ else if (_profile is not null)
 {
     <div class="profile-header">
         <h1>@_profile.Username @if (_profile.IsAdmin) { <span class="badge">admin</span> }</h1>
-        <p class="muted">Member since @Format.DateUtc(_profile.CreatedAt) · @_profile.TotalScrobbles scrobbles</p>
+        <p class="muted">Member since @Format.DateUtc(_profile.CreatedAt, _userTimezone) · @_profile.TotalScrobbles scrobbles</p>
     </div>
 
     @if (_nowPlaying is { } np)
@@ -87,6 +87,7 @@ else if (_profile is not null)
 @code {
     [Parameter] public string Username { get; set; } = "";
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private UserProfileResponse? _profile;
     private PagedResponse<ScrobbleResponse>? _recent;
@@ -96,6 +97,7 @@ else if (_profile is not null)
     private Dictionary<Guid, string?> _recentAlbumCovers = new();
     private bool _loaded;
     private bool _forbidden;
+    private string? _userTimezone;
 
     protected override async Task OnInitializedAsync()
     {
@@ -106,6 +108,8 @@ else if (_profile is not null)
             if (user.Identity?.IsAuthenticated == true)
                 viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());
         }
+
+        _userTimezone = Timezone;
 
         var profile = await Users.GetProfileAsync(Username, viewer);
         if (profile.Succeeded)
@@ -153,6 +157,10 @@ else if (_profile is not null)
         {
             foreach (var kvp in albumTasks)
                 _recentAlbumCovers[kvp.Key] = kvp.Value.Result;
+        }
+    }
+}
+s[kvp.Key] = kvp.Value.Result;
         }
     }
 }

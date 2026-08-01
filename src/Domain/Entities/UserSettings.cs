@@ -19,6 +19,8 @@ public class UserSettings
     public string? ArtistIgnoreRegex { get; set; }
     public string? AlbumIgnoreRegex { get; set; }
 
+    public string? Timezone { get; set; }
+
     // Navigation property
     public User? User { get; set; }
 }

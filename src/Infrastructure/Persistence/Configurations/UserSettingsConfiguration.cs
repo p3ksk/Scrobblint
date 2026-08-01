@@ -19,6 +19,8 @@ public sealed class UserSettingsConfiguration : IEntityTypeConfiguration<UserSet
         builder.Property(s => s.ArtistIgnoreRegex).HasMaxLength(500);
         builder.Property(s => s.AlbumIgnoreRegex).HasMaxLength(500);
 
+        builder.Property(s => s.Timezone).HasMaxLength(100);
+
         builder.HasIndex(s => s.UserId).IsUnique();
     }
 }

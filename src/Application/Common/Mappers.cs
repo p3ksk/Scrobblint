@@ -24,7 +24,8 @@ public static class Mappers
 
     public static UserSettingsDto ToDto(this UserSettings settings) =>
         new(settings.ProfileVisibility, settings.Theme,
-            settings.TrackIgnoreRegex, settings.ArtistIgnoreRegex, settings.AlbumIgnoreRegex);
+            settings.TrackIgnoreRegex, settings.ArtistIgnoreRegex, settings.AlbumIgnoreRegex,
+            settings.Timezone);
 
     /// <summary>Counts entries in a <c>FailedRelay.TracksJson</c> array, tolerating malformed payloads.</summary>
     public static int CountRelayTracks(string tracksJson)

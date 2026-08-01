@@ -47,13 +47,6 @@ else
                 Canonical album
                 <input name="CanonicalAlbum" value="@_track.CanonicalAlbum" />
             </label>
-            <label>
-                Status
-                <select name="Found">
-                    <option value="true" selected="@(_track.Found)">Found — has metadata</option>
-                    <option value="false" selected="@(!_track.Found)">Not found — negative cache</option>
-                </select>
-            </label>
             <p class="muted">Fetched: @_track.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</p>
             <button class="btn btn-primary" type="submit">Save</button>
         </form>

@@ -75,6 +75,7 @@
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
     [SupplyParameterFromQuery] private string? Error { get; set; }
     [SupplyParameterFromQuery] private int? Retried { get; set; }
     [SupplyParameterFromQuery] private int? Deleted { get; set; }
@@ -87,4 +88,6 @@
         var result = await ConnectionService.GetFailedRelaysAsync(userId);
         if (result.Succeeded) _failedRelays = result.Value;
     }
+}
+ }
 }

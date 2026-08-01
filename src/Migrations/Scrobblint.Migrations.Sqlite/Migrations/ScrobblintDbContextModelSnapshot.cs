@@ -225,9 +225,6 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.Property<DateTime>("FetchedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("Found")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("TrackKey")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -309,6 +306,10 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
 
                     b.Property<int>("Theme")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Timezone")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("TrackIgnoreRegex")
                         .HasMaxLength(500)
