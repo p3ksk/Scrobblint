@@ -45,28 +45,11 @@ public interface IScrobbleRepository
     Task<IReadOnlyList<TrackCount>> GetTopTracksAsync(
         Guid userId, int limit, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Listens grouped by calendar month (UTC), oldest first.</summary>
-    Task<IReadOnlyList<ChartPoint>> GetMonthlyChartAsync(
-        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Listens grouped by day (UTC). Defaults to the trailing <see cref="AppConstants.DailyChartDays"/> window when no range is given.</summary>
-    Task<IReadOnlyList<ChartPoint>> GetDailyChartAsync(
-        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Listens grouped by hour of day (UTC), all 24 hours including zeros.</summary>
-    Task<IReadOnlyList<ChartPoint>> GetHourlyChartAsync(
-        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Listens grouped by day of week (UTC), all seven days including zeros.</summary>
-    Task<IReadOnlyList<ChartPoint>> GetDayOfWeekChartAsync(
-        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Returns an 8×24 heatmap grid: row 0 is the hourly average, rows 1-7 are Monday-Sunday, columns are hours 0-23 UTC.</summary>
-    Task<IReadOnlyList<IReadOnlyList<int>>> GetDayHourHeatmapAsync(
-        Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Listens grouped by calendar year (UTC), oldest first.</summary>
-    Task<IReadOnlyList<ChartPoint>> GetYearlyChartAsync(
+    /// <summary>
+    /// Listen timestamps (UTC) in the range, unordered. The time-based charts bucket these in memory in
+    /// the user's timezone, since local-time grouping can't be expressed portably in SQL.
+    /// </summary>
+    Task<IReadOnlyList<DateTime>> GetTimestampsAsync(
         Guid userId, DateTime? from = null, DateTime? to = null, CancellationToken cancellationToken = default);
 
     // ── Artist / album drill-down ──────────────────────────────────────────

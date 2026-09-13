@@ -70,7 +70,7 @@ else
                                 <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)">@s.Album</a>
                             }
                         </td>
-                        <td class="muted" title="@Format.DateTimeUtc(s.Timestamp, _userTimezone)">@Format.Ago(s.Timestamp)</td>
+                        <td class="muted" title="@Format.DateTimeUtc(s.Timestamp, _userTimezone)">@Format.Ago(s.Timestamp, _userTimezone)</td>
                         <td>
                             <form method="post" action="/account/scrobbles/@s.Id/delete" class="inline-form">
                                 <AntiforgeryToken />
@@ -103,6 +103,7 @@ else
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
     [SupplyParameterFromQuery] private int? Page { get; set; }
     [SupplyParameterFromQuery(Name = "deleted")] private int? Deleted { get; set; }
     [SupplyParameterFromQuery(Name = "from")] private string? _fromParam { get; set; }
@@ -114,13 +115,14 @@ else
     private bool _deleted;
     private string? _userTimezone;
 
-    // Preset date strings (UTC)
-    private static string Today => DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
-    private static string SevenDaysAgo => DateTime.UtcNow.Date.AddDays(-7).ToString("yyyy-MM-dd");
-    private static string ThirtyDaysAgo => DateTime.UtcNow.Date.AddDays(-30).ToString("yyyy-MM-dd");
-    private static string ThisYearStart => new DateTime(DateTime.UtcNow.Year, 1, 1).ToString("yyyy-MM-dd");
-    private static string LastYearStart => new DateTime(DateTime.UtcNow.Year - 1, 1, 1).ToString("yyyy-MM-dd");
-    private static string LastYearEnd => new DateTime(DateTime.UtcNow.Year - 1, 12, 31).ToString("yyyy-MM-dd");
+    // Preset date strings, in the user's timezone
+    private DateOnly LocalToday => Format.Today(_userTimezone);
+    private string Today => LocalToday.ToString("yyyy-MM-dd");
+    private string SevenDaysAgo => LocalToday.AddDays(-7).ToString("yyyy-MM-dd");
+    private string ThirtyDaysAgo => LocalToday.AddDays(-30).ToString("yyyy-MM-dd");
+    private string ThisYearStart => new DateOnly(LocalToday.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string LastYearStart => new DateOnly(LocalToday.Year - 1, 1, 1).ToString("yyyy-MM-dd");
+    private string LastYearEnd => new DateOnly(LocalToday.Year - 1, 12, 31).ToString("yyyy-MM-dd");
 
     private bool IsAllTime => _fromParam is null && _toParam is null;
     private bool IsLast7 => _fromParam == SevenDaysAgo && _toParam == Today;
@@ -128,14 +130,9 @@ else
     private bool IsThisYear => _fromParam == ThisYearStart && _toParam == Today;
     private bool IsLastYear => _fromParam == LastYearStart && _toParam == LastYearEnd;
 
-    private DateTime? FromUtc => ParseDateParam(_fromParam);
-    private DateTime? ToUtc => ParseDateParam(_toParam)?.AddDays(1);
-
-    private static DateTime? ParseDateParam(string? s) =>
-        !string.IsNullOrEmpty(s) && DateTime.TryParseExact(s, "yyyy-MM-dd", null,
-            System.Globalization.DateTimeStyles.None, out var d)
-            ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
-            : null;
+    // UTC instants at which the chosen local days begin (to is exclusive: the start of the following day)
+    private DateTime? FromUtc => Format.StartOfDayUtc(_fromParam, _userTimezone);
+    private DateTime? ToUtc => Format.StartOfDayUtc(_toParam, _userTimezone, addDays: 1);
 
     private string PresetClass(bool active) => active ? "active" : "";
 
@@ -159,6 +156,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        _userTimezone = Timezone;
         _deleted = Deleted == 1;
         var user = (await AuthState!).User;
         var viewer = new ViewerContext(user.GetUserId(), user.IsAdmin());

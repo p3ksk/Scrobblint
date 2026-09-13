@@ -54,7 +54,7 @@ else if (_profile is not null)
                 }
                 <div>
                     <p class="track-line"><span class="track">@latest.Track</span> — <a href="/artist/@Uri.EscapeDataString(latest.Artist)" class="artist">@latest.Artist</a></p>
-                    <p class="muted">@Format.Ago(latest.Timestamp)</p>
+                    <p class="muted">@Format.Ago(latest.Timestamp, _userTimezone)</p>
                 </div>
             </div>
         </div>
@@ -76,7 +76,7 @@ else if (_profile is not null)
                             <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
                             <a href="/artist/@Uri.EscapeDataString(s.Artist)" class="artist">@s.Artist</a>
                         </div>
-                        <span class="time">@Format.Ago(s.Timestamp)</span>
+                        <span class="time">@Format.Ago(s.Timestamp, _userTimezone)</span>
                     </li>
                 }
             </ul>

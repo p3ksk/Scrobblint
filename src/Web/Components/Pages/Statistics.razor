@@ -160,13 +160,14 @@ else
     private string? _userTimezone;
     private const int MonthlyPageSize = 12;
 
-    // Preset date strings (UTC)
-    private static string Today => DateTime.UtcNow.Date.ToString("yyyy-MM-dd");
-    private static string SevenDaysAgo => DateTime.UtcNow.Date.AddDays(-7).ToString("yyyy-MM-dd");
-    private static string ThirtyDaysAgo => DateTime.UtcNow.Date.AddDays(-30).ToString("yyyy-MM-dd");
-    private static string ThisYearStart => new DateTime(DateTime.UtcNow.Year, 1, 1).ToString("yyyy-MM-dd");
-    private static string LastYearStart => new DateTime(DateTime.UtcNow.Year - 1, 1, 1).ToString("yyyy-MM-dd");
-    private static string LastYearEnd => new DateTime(DateTime.UtcNow.Year - 1, 12, 31).ToString("yyyy-MM-dd");
+    // Preset date strings, in the user's timezone
+    private DateOnly LocalToday => Format.Today(_userTimezone);
+    private string Today => LocalToday.ToString("yyyy-MM-dd");
+    private string SevenDaysAgo => LocalToday.AddDays(-7).ToString("yyyy-MM-dd");
+    private string ThirtyDaysAgo => LocalToday.AddDays(-30).ToString("yyyy-MM-dd");
+    private string ThisYearStart => new DateOnly(LocalToday.Year, 1, 1).ToString("yyyy-MM-dd");
+    private string LastYearStart => new DateOnly(LocalToday.Year - 1, 1, 1).ToString("yyyy-MM-dd");
+    private string LastYearEnd => new DateOnly(LocalToday.Year - 1, 12, 31).ToString("yyyy-MM-dd");
 
     // Active preset detection
     private bool IsAllTime => _fromParam is null && _toParam is null;
@@ -175,15 +176,9 @@ else
     private bool IsThisYear => _fromParam == ThisYearStart && _toParam == Today;
     private bool IsLastYear => _fromParam == LastYearStart && _toParam == LastYearEnd;
 
-    // Parsed UTC bounds passed to the service (to is exclusive end-of-day)
-    private DateTime? FromUtc => ParseDateParam(_fromParam);
-    private DateTime? ToUtc => ParseDateParam(_toParam)?.AddDays(1);
-
-    private static DateTime? ParseDateParam(string? s) =>
-        !string.IsNullOrEmpty(s) && DateTime.TryParseExact(s, "yyyy-MM-dd", null,
-            System.Globalization.DateTimeStyles.None, out var d)
-            ? DateTime.SpecifyKind(d, DateTimeKind.Utc)
-            : null;
+    // UTC instants at which the chosen local days begin (to is exclusive: the start of the following day)
+    private DateTime? FromUtc => Format.StartOfDayUtc(_fromParam, _userTimezone);
+    private DateTime? ToUtc => Format.StartOfDayUtc(_toParam, _userTimezone, addDays: 1);
 
     private string RangeHref(string? from, string? to)
     {
@@ -314,18 +309,7 @@ else
             return;
         }
 
-        int[][] shifted;
-        if (!string.IsNullOrEmpty(_userTimezone))
-        {
-            try { shifted = Format.ShiftHeatmap(rows, _userTimezone); }
-            catch (TimeZoneNotFoundException) { shifted = rows.Select(r => r.ToArray()).ToArray(); }
-        }
-        else
-        {
-            shifted = rows.Select(r => r.ToArray()).ToArray();
-        }
-
-        var allValues = shifted.SelectMany(r => r).ToList();
+        var allValues = rows.SelectMany(r => r).ToList();
         var maxVal = allValues.Count > 0 ? allValues.Max() : 1;
         string[] dayLabels = { "Average", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
 
@@ -374,7 +358,7 @@ else
 
             for (var h = 0; h < 24; h++)
             {
-                var val = shifted[d][h];
+                var val = rows[d][h];
                 builder.OpenElement(100 + d * 30 + h, "td");
                 builder.AddAttribute(101 + d * 30 + h, "class", "heatmap-cell");
                 builder.AddAttribute(102 + d * 30 + h, "style", $"background-color:{HeatColor(val, maxVal)}");

@@ -1,4 +1,5 @@
 using Scrobblint.Application.Common;
+using Scrobblint.Domain.Entities;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Auth;
 using Scrobblint.Shared.Scrobbles;
@@ -40,6 +41,32 @@ public class StatisticsAndUserServiceTests
         Assert.Equal(3, stats.Value.TopArtists[0].Count);
         Assert.Equal("Idioteque", stats.Value.TopTracks[0].Track);
         Assert.Equal(2, stats.Value.TopTracks[0].Count);
+    }
+
+    [Fact]
+    public async Task Stats_bucket_listens_in_the_users_timezone()
+    {
+        using var host = new TestHost();
+        var userId = await SeedAsync(host);
+        await host.Users.UpdateSettingsAsync(userId,
+            new UserSettingsDto(ProfileVisibility.Public, Theme.System, Timezone: "Asia/Kathmandu"));
+
+        // Kathmandu is UTC+05:45: this Wednesday 2025-12-31 20:00 UTC listen is Thursday 2026-01-01 01:45 locally.
+        host.Db.Scrobbles.Add(new Scrobble
+        {
+            UserId = userId, Artist = "Radiohead", Track = "Nude",
+            Timestamp = new DateTime(2025, 12, 31, 20, 0, 0, DateTimeKind.Utc)
+        });
+        await host.Db.SaveChangesAsync();
+
+        var stats = (await host.Statistics.GetStatsAsync("alice", new ViewerContext(userId, false))).Value!;
+
+        Assert.Equal(new[] { "2026" }, stats.YearlyChart.Select(p => p.Period));
+        Assert.Equal(new[] { "2026-01" }, stats.MonthlyChart.Select(p => p.Period));
+        Assert.Equal(new[] { "2026-01-01" }, stats.DailyChart.Select(p => p.Period));
+        Assert.Equal(1, stats.HourlyChart.Single(p => p.Period == "01").Count);
+        Assert.Equal(1, stats.DayOfWeekChart.Single(p => p.Period == "Thu").Count);
+        Assert.Equal(1, stats.DayHourHeatmap!.Rows[4][1]); // rows 1-7 = Mon..Sun
     }
 
     [Fact]

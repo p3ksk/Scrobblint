@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Security;
@@ -17,6 +18,7 @@ public sealed class UserService : IUserService
     private readonly IScrobbleRepository _scrobbles;
     private readonly ITokenGenerator _tokenGenerator;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMemoryCache _cache;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
@@ -25,6 +27,7 @@ public sealed class UserService : IUserService
         IScrobbleRepository scrobbles,
         ITokenGenerator tokenGenerator,
         IUnitOfWork unitOfWork,
+        IMemoryCache cache,
         ILogger<UserService> logger)
     {
         _users = users;
@@ -32,6 +35,7 @@ public sealed class UserService : IUserService
         _scrobbles = scrobbles;
         _tokenGenerator = tokenGenerator;
         _unitOfWork = unitOfWork;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -105,6 +109,8 @@ public sealed class UserService : IUserService
         settings.Timezone = string.IsNullOrWhiteSpace(dto.Timezone) ? null : dto.Timezone.Trim();
         _settings.Update(settings);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        // Cached stats were bucketed in the previous timezone.
+        _cache.Remove(CacheKeys.Stats(userId));
 
         return Result<UserSettingsDto>.Ok(settings.ToDto());
     }

@@ -27,11 +27,11 @@ else
                 <p class="stat-line"><strong>@_detail.TotalPlays</strong> plays</p>
                 @if (_detail.FirstPlayed is not null)
                 {
-                    <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value))</p>
+                    <p class="muted">First heard @Format.DateUtc(Mappers.ToUnix(_detail.FirstPlayed.Value), _userTimezone)</p>
                 }
                 @if (_detail.LastPlayed is not null)
                 {
-                    <p class="muted">Last heard @Format.Ago(Mappers.ToUnix(_detail.LastPlayed.Value))</p>
+                    <p class="muted">Last heard @Format.Ago(Mappers.ToUnix(_detail.LastPlayed.Value), _userTimezone)</p>
                 }
             </div>
         </div>
@@ -78,7 +78,7 @@ else
                                     <a href="/album/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Album)" class="muted">@s.Album</a>
                                 }
                             </div>
-                            <span class="time">@Format.Ago(s.Timestamp)</span>
+                            <span class="time">@Format.Ago(s.Timestamp, _userTimezone)</span>
                         </li>
                     }
                 </ul>

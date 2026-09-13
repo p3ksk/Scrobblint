@@ -1,3 +1,4 @@
+using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Common;
 using Scrobblint.Domain.Enums;
@@ -10,15 +11,18 @@ public sealed class StatisticsService : IStatisticsService
     private readonly IScrobbleRepository _scrobbles;
     private readonly IUserRepository _users;
     private readonly IUserSettingsRepository _settings;
+    private readonly IClock _clock;
 
     public StatisticsService(
         IScrobbleRepository scrobbles,
         IUserRepository users,
-        IUserSettingsRepository settings)
+        IUserSettingsRepository settings,
+        IClock clock)
     {
         _scrobbles = scrobbles;
         _users = users;
         _settings = settings;
+        _clock = clock;
     }
 
     public async Task<Result<StatsResponse>> GetStatsAsync(
@@ -43,17 +47,20 @@ public sealed class StatisticsService : IStatisticsService
         var topArtists = await _scrobbles.GetTopArtistsAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
         var topAlbums = await _scrobbles.GetTopAlbumsAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
         var topTracks = await _scrobbles.GetTopTracksAsync(user.Id, AppConstants.TopListSize, from, to, cancellationToken);
-        var monthly = await _scrobbles.GetMonthlyChartAsync(user.Id, from, to, cancellationToken);
-        var daily = await _scrobbles.GetDailyChartAsync(user.Id, from, to, cancellationToken);
-        var hourly = await _scrobbles.GetHourlyChartAsync(user.Id, from, to, cancellationToken);
-        var dayOfWeek = await _scrobbles.GetDayOfWeekChartAsync(user.Id, from, to, cancellationToken);
-        var yearly = await _scrobbles.GetYearlyChartAsync(user.Id, from, to, cancellationToken);
-        var heatmap = await _scrobbles.GetDayHourHeatmapAsync(user.Id, from, to, cancellationToken);
+
+        // Time-based charts follow the user's own timezone. The daily chart defaults to the trailing
+        // window of local days when no range is given.
+        var zone = TimeZones.FindOrUtc(settings?.Timezone);
+        var dailyFrom = from ?? TimeZones.StartOfDayUtc(
+            TimeZones.Today(zone, _clock.UtcNow).AddDays(-(AppConstants.DailyChartDays - 1)), zone);
+        var timestamps = await _scrobbles.GetTimestampsAsync(user.Id, from, to, cancellationToken);
+        var charts = ListeningCharts.Build(timestamps, zone, dailyFrom);
 
         return Result<StatsResponse>.Ok(new StatsResponse(
             total, uniqueArtists, uniqueTracks, uniqueAlbums,
-            topArtists, topAlbums, topTracks, monthly, daily, hourly, dayOfWeek, yearly,
-            new DayHourHeatmap(heatmap)));
+            topArtists, topAlbums, topTracks,
+            charts.Monthly, charts.Daily, charts.Hourly, charts.DayOfWeek, charts.Yearly,
+            new DayHourHeatmap(charts.DayHourHeatmap)));
     }
 
     public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default)

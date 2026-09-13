@@ -65,7 +65,7 @@ else
                                 <a href="/track/@Uri.EscapeDataString(s.Artist)/@Uri.EscapeDataString(s.Track)" class="track">@s.Track</a>
                                 <a href="/artist/@Uri.EscapeDataString(s.Artist)" class="artist">@s.Artist</a>
                             </div>
-                            <span class="time">@Format.Ago(s.Timestamp)</span>
+                            <span class="time">@Format.Ago(s.Timestamp, Timezone)</span>
                         </li>
                     }
                 </ul>
@@ -109,6 +109,7 @@ else
 
 @code {
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
 
     private StatsResponse? _stats;
     private PagedResponse<ScrobbleResponse>? _recent;
