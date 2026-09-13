@@ -1,7 +1,10 @@
 @inject AuthenticationStateProvider AuthProvider
 
 <nav class="navbar">
-    <a class="brand" href="/">🎧 Scrobblint</a>
+    <a class="brand" href="/">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        Scrobblint
+    </a>
     <input type="checkbox" id="nav-toggle" class="nav-toggle" />
     <label for="nav-toggle" class="nav-burger" aria-label="Toggle navigation">
         <span></span><span></span><span></span>
@@ -9,22 +12,25 @@
     <div class="nav-links">
         <AuthorizeView>
             <Authorized>
-                <a href="/dashboard">Dashboard</a>
-                <a href="/recent">Recent</a>
-                <a href="/stats">Statistics</a>
-                <a href="/settings">Settings</a>
+                <NavLink href="/dashboard">Dashboard</NavLink>
+                <NavLink href="/recent">Recent</NavLink>
+                <NavLink href="/stats">Statistics</NavLink>
+                <NavLink href="/settings">Settings</NavLink>
                 <AuthorizeView Roles="Admin" Context="admin">
-                    <a href="/admin">Administration</a>
+                    <NavLink href="/admin">Administration</NavLink>
                 </AuthorizeView>
-                <span class="nav-user">@context.User.Identity?.Name</span>
+                <span class="nav-user">
+                    <span class="nav-avatar" aria-hidden="true">@(char.ToUpperInvariant(context.User.Identity?.Name?.FirstOrDefault() ?? '?'))</span>
+                    @context.User.Identity?.Name
+                </span>
                 <form method="post" action="/account/logout" class="inline-form">
                     <AntiforgeryToken />
                     <button type="submit" class="btn btn-link">Log out</button>
                 </form>
             </Authorized>
             <NotAuthorized>
-                <a href="/login">Login</a>
-                <a href="/register">Register</a>
+                <NavLink href="/login">Login</NavLink>
+                <NavLink href="/register">Register</NavLink>
             </NotAuthorized>
         </AuthorizeView>
     </div>

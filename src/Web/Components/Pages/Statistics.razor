@@ -334,10 +334,10 @@ else
 
         // Legend
         builder.OpenElement(2, "div");
-        builder.AddAttribute(3, "style", "display:flex;align-items:center;gap:4px;font-size:0.75rem;margin-bottom:0.75rem;color:var(--muted-ink)");
+        builder.AddAttribute(3, "class", "heatmap-legend");
         builder.AddContent(4, "0");
         builder.OpenElement(5, "div");
-        builder.AddAttribute(6, "style", $"width:120px;height:12px;background:linear-gradient(to right,{HeatColor(0, maxVal)},{HeatColor(maxVal, maxVal)});border:var(--bd-thin)");
+        builder.AddAttribute(6, "class", "heatmap-legend-bar");
         builder.CloseElement();
         builder.AddContent(7, maxVal.ToString());
         builder.CloseElement();
@@ -389,33 +389,12 @@ else
         builder.CloseElement(); // wrapper
     };
 
+    // Blends from the empty-cell colour towards the heat accent. Both are theme
+    // tokens in app.css, so the scale follows light/dark mode.
     private static string HeatColor(int value, int max)
     {
-        var t = Math.Clamp(value / (double)max, 0.0, 1.0);
-        // Pale yellow (#fef7e0) → --yellow (#ffd23f) → --coral (#ff5d5d) → deep red (#a01010)
-        // High contrast across the full range, matching app palette
-        int r, g, b;
-        if (t <= 0.33)
-        {
-            var s = t / 0.33;
-            r = 255;
-            g = (int)(247 + s * (210 - 247));
-            b = (int)(224 + s * (63 - 224));
-        }
-        else if (t <= 0.66)
-        {
-            var s = (t - 0.33) / 0.33;
-            r = 255;
-            g = (int)(210 + s * (93 - 210));
-            b = (int)(63 + s * (93 - 63));
-        }
-        else
-        {
-            var s = (t - 0.66) / 0.34;
-            r = (int)(255 + s * (160 - 255));
-            g = (int)(93 + s * (16 - 93));
-            b = (int)(93 + s * (16 - 93));
-        }
-        return $"rgb({r},{g},{b})";
+        if (value <= 0 || max <= 0) return "var(--heat-empty-bg)";
+        var pct = (int)Math.Round(15 + 85 * Math.Clamp(value / (double)max, 0.0, 1.0));
+        return $"color-mix(in oklab, var(--heat-hi) {pct}%, var(--heat-empty-bg))";
     }
 }
