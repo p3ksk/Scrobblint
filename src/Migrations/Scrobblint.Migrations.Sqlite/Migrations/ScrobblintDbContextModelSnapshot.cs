@@ -101,6 +101,23 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.ToTable("FailedRelays", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.GlobalStatistics", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ComputedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GlobalStatistics", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.Scrobble", b =>
                 {
                     b.Property<Guid>("Id")
@@ -131,6 +148,8 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
 
                     b.HasIndex("UserId", "Timestamp");
 
@@ -326,6 +345,23 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                     b.ToTable("UserSettings", (string)null);
                 });
 
+            modelBuilder.Entity("Scrobblint.Domain.Entities.UserStatistics", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ComputedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("UserStatistics", (string)null);
+                });
+
             modelBuilder.Entity("Scrobblint.Domain.Entities.ExternalConnection", b =>
                 {
                     b.HasOne("Scrobblint.Domain.Entities.User", "User")
@@ -379,6 +415,15 @@ namespace Scrobblint.Migrations.Sqlite.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Scrobblint.Domain.Entities.UserStatistics", b =>
+                {
+                    b.HasOne("Scrobblint.Domain.Entities.User", null)
+                        .WithOne()
+                        .HasForeignKey("Scrobblint.Domain.Entities.UserStatistics", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Scrobblint.Domain.Entities.User", b =>

@@ -20,6 +20,8 @@ public class ScrobblintDbContext : DbContext
     public DbSet<ScrobbleImport> ScrobbleImports => Set<ScrobbleImport>();
     public DbSet<TrackInfo> TrackInfos => Set<TrackInfo>();
     public DbSet<FailedRelay> FailedRelays => Set<FailedRelay>();
+    public DbSet<UserStatistics> UserStatistics => Set<UserStatistics>();
+    public DbSet<GlobalStatistics> GlobalStatistics => Set<GlobalStatistics>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

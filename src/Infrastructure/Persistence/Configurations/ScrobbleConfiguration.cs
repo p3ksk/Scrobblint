@@ -29,6 +29,10 @@ public sealed class ScrobbleConfiguration : IEntityTypeConfiguration<Scrobble>
         // Recent-listens and date-range queries: newest first per user.
         builder.HasIndex(s => new { s.UserId, s.Timestamp });
 
+        // Activity lookup for the statistics precompute worker: distinct users with scrobbles
+        // received recently. A time-only predicate can't use the (UserId, Timestamp) index.
+        builder.HasIndex(s => s.CreatedAt);
+
         // Covering indexes for the per-user grouping aggregates. The leading (UserId, Artist) prefix
         // also serves the top-artists / distinct-artists queries, so no separate (UserId, Artist)
         // index is needed. (UserId, Artist, Track) covers distinct-tracks and top-tracks;

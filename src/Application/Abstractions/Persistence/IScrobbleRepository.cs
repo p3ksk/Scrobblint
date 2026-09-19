@@ -84,6 +84,13 @@ public interface IScrobbleRepository
     /// <summary>Total scrobble count across all users.</summary>
     Task<int> CountAllAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Ids of enabled users with at least one scrobble received (by server time) at or after
+    /// <paramref name="sinceUtc"/>. Used by the statistics precompute worker to target users whose
+    /// data may have changed.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetActiveUserIdsAsync(DateTime sinceUtc, CancellationToken cancellationToken = default);
+
     /// <summary>Total distinct artists across all users.</summary>
     Task<int> CountDistinctArtistsGlobalAsync(CancellationToken cancellationToken = default);
 

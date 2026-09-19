@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
@@ -23,7 +22,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
     private readonly IScrobbleImportQueue _queue;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
-    private readonly IMemoryCache _cache;
+    private readonly IStatisticsRepository _statistics;
     private readonly ILogger<ScrobbleImportService> _logger;
 
     public ScrobbleImportService(
@@ -35,7 +34,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         IScrobbleImportQueue queue,
         IUnitOfWork unitOfWork,
         IClock clock,
-        IMemoryCache cache,
+        IStatisticsRepository statistics,
         ILogger<ScrobbleImportService> logger)
     {
         _imports = imports;
@@ -46,7 +45,7 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         _queue = queue;
         _unitOfWork = unitOfWork;
         _clock = clock;
-        _cache = cache;
+        _statistics = statistics;
         _logger = logger;
     }
 
@@ -151,11 +150,11 @@ public sealed class ScrobbleImportService : IScrobbleImportService
         _imports.Update(import);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        // Invalidate cached statistics only when the whole import finishes, so the completed result
-        // shows up immediately. Per-page invalidation would thrash the cache across thousands of
-        // pages and force a constant, expensive recompute while the import is running.
+        // Invalidate the stored statistics only when the whole import finishes, so the completed
+        // result shows up immediately. Per-page invalidation would thrash the snapshot across
+        // thousands of pages and force a constant, expensive recompute while the import is running.
         if (finished)
-            _cache.Remove(CacheKeys.Stats(import.UserId));
+            await _statistics.DeleteUserAsync(import.UserId, cancellationToken);
 
         return !finished;
     }

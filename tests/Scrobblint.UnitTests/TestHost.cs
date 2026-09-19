@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
+using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Services;
@@ -29,6 +30,9 @@ public sealed class TestHost : IDisposable
     public AuthService Auth { get; }
     public ScrobbleService Scrobbles { get; }
     public StatisticsService Statistics { get; }
+    public StatisticsSnapshotService StatisticsSnapshots { get; }
+    public IStatisticsRepository StatisticsRepo { get; }
+    public IScrobbleRepository ScrobbleRepo { get; }
     public UserService Users { get; }
     public ScrobbleImportService Imports { get; }
     public FakeLastfmRelay Lastfm { get; } = new();
@@ -50,6 +54,7 @@ public sealed class TestHost : IDisposable
 
         var userRepo = new UserRepository(Db, factory);
         var scrobbleRepo = new ScrobbleRepository(Db, factory);
+        ScrobbleRepo = scrobbleRepo;
         var settingsRepo = new UserSettingsRepository(Db, factory);
         var unitOfWork = new UnitOfWork(Db);
         var hasher = new Pbkdf2PasswordHasher();
@@ -57,13 +62,15 @@ public sealed class TestHost : IDisposable
 
         var importRepo = new ScrobbleImportRepository(Db, factory);
         var connectionRepo = new ExternalConnectionRepository(Db, factory);
+        StatisticsRepo = new StatisticsRepository(Db, factory);
         var cache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         Auth = new AuthService(userRepo, settingsRepo, hasher, tokens, unitOfWork, Clock, NullLogger<AuthService>.Instance);
         Scrobbles = new ScrobbleService(scrobbleRepo, userRepo, settingsRepo, connectionRepo, unitOfWork, PipelineQueue, new IScrobbleRelay[] { Lastfm }, Clock, cache, NullLogger<ScrobbleService>.Instance);
         Statistics = new StatisticsService(scrobbleRepo, userRepo, settingsRepo, Clock);
-        Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, cache, NullLogger<UserService>.Instance);
-        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, settingsRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, cache, NullLogger<ScrobbleImportService>.Instance);
+        StatisticsSnapshots = new StatisticsSnapshotService(Statistics, userRepo, settingsRepo, StatisticsRepo, Clock, NullLogger<StatisticsSnapshotService>.Instance);
+        Users = new UserService(userRepo, settingsRepo, scrobbleRepo, tokens, unitOfWork, StatisticsRepo, NullLogger<UserService>.Instance);
+        Imports = new ScrobbleImportService(importRepo, connectionRepo, scrobbleRepo, settingsRepo, Lastfm, new NoopImportQueue(), unitOfWork, Clock, StatisticsRepo, NullLogger<ScrobbleImportService>.Instance);
     }
 
     /// <summary>

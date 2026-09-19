@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Services;
 
@@ -24,11 +26,14 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthService>(sp => sp.GetRequiredService<AuthService>());
         services.AddScoped<IScrobbleService>(sp => sp.GetRequiredService<ScrobbleService>());
-        services.AddScoped<IStatisticsService>(sp =>
-            new CachedStatisticsService(
-                sp.GetRequiredService<StatisticsService>(),
-                sp.GetRequiredService<IUserRepository>(),
-                sp.GetRequiredService<IMemoryCache>()));
+        services.AddScoped<IStatisticsComputer>(sp => sp.GetRequiredService<StatisticsService>());
+        services.AddScoped<IStatisticsService>(sp => new StatisticsSnapshotService(
+            sp.GetRequiredService<StatisticsService>(),
+            sp.GetRequiredService<IUserRepository>(),
+            sp.GetRequiredService<IUserSettingsRepository>(),
+            sp.GetRequiredService<IStatisticsRepository>(),
+            sp.GetRequiredService<IClock>(),
+            sp.GetRequiredService<ILogger<StatisticsSnapshotService>>()));
         services.AddScoped<IUserService>(sp => sp.GetRequiredService<UserService>());
         services.AddScoped<IExternalConnectionService>(sp => sp.GetRequiredService<ExternalConnectionService>());
         services.AddScoped<IScrobbleImportService>(sp => sp.GetRequiredService<ScrobbleImportService>());

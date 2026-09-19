@@ -1,12 +1,13 @@
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Common;
+using Scrobblint.Domain.Entities;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Stats;
 
 namespace Scrobblint.Application.Services;
 
-public sealed class StatisticsService : IStatisticsService
+public sealed class StatisticsService : IStatisticsService, IStatisticsComputer
 {
     private readonly IScrobbleRepository _scrobbles;
     private readonly IUserRepository _users;
@@ -39,6 +40,42 @@ public sealed class StatisticsService : IStatisticsService
         if (visibility == ProfileVisibility.Private && !viewer.CanSeePrivate(user.Id))
             return Result<StatsResponse>.Forbidden("This profile is private.");
 
+        var stats = await BuildAsync(user, settings, from, to, cancellationToken);
+        return Result<StatsResponse>.Ok(stats);
+    }
+
+    public async Task<StatsResponse?> ComputeUserStatsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var user = await _users.GetByIdAsync(userId, cancellationToken);
+        if (user is null || user.IsDisabled)
+            return null;
+
+        var settings = await _settings.GetByUserIdAsync(userId, cancellationToken);
+        return await BuildAsync(user, settings, from: null, to: null, cancellationToken);
+    }
+
+    public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default) =>
+        Result<GlobalStatsResponse>.Ok(await ComputeGlobalStatsAsync(cancellationToken));
+
+    public async Task<GlobalStatsResponse> ComputeGlobalStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var total = await _scrobbles.CountAllAsync(cancellationToken);
+        var totalUsers = await _users.CountAllAsync(cancellationToken);
+        var uniqueArtists = await _scrobbles.CountDistinctArtistsGlobalAsync(cancellationToken);
+        var uniqueTracks = await _scrobbles.CountDistinctTracksGlobalAsync(cancellationToken);
+        var topArtists = await _scrobbles.GetTopArtistsGlobalAsync(AppConstants.TopListSize, cancellationToken);
+        var topAlbums = await _scrobbles.GetTopAlbumsGlobalAsync(AppConstants.TopListSize, cancellationToken);
+        var topTracks = await _scrobbles.GetTopTracksGlobalAsync(AppConstants.TopListSize, cancellationToken);
+
+        return new GlobalStatsResponse(
+            total, totalUsers, uniqueArtists, uniqueTracks,
+            topArtists, topAlbums, topTracks);
+    }
+
+    private async Task<StatsResponse> BuildAsync(
+        User user, UserSettings? settings,
+        DateTime? from, DateTime? to, CancellationToken cancellationToken)
+    {
         // Each call is a separate, individually-optimised aggregate query.
         var total = await _scrobbles.CountAsync(user.Id, from, to, cancellationToken);
         var uniqueArtists = await _scrobbles.CountDistinctArtistsAsync(user.Id, from, to, cancellationToken);
@@ -56,25 +93,10 @@ public sealed class StatisticsService : IStatisticsService
         var timestamps = await _scrobbles.GetTimestampsAsync(user.Id, from, to, cancellationToken);
         var charts = ListeningCharts.Build(timestamps, zone, dailyFrom);
 
-        return Result<StatsResponse>.Ok(new StatsResponse(
+        return new StatsResponse(
             total, uniqueArtists, uniqueTracks, uniqueAlbums,
             topArtists, topAlbums, topTracks,
             charts.Monthly, charts.Daily, charts.Hourly, charts.DayOfWeek, charts.Yearly,
-            new DayHourHeatmap(charts.DayHourHeatmap)));
-    }
-
-    public async Task<Result<GlobalStatsResponse>> GetGlobalStatsAsync(CancellationToken cancellationToken = default)
-    {
-        var total = await _scrobbles.CountAllAsync(cancellationToken);
-        var totalUsers = await _users.CountAllAsync(cancellationToken);
-        var uniqueArtists = await _scrobbles.CountDistinctArtistsGlobalAsync(cancellationToken);
-        var uniqueTracks = await _scrobbles.CountDistinctTracksGlobalAsync(cancellationToken);
-        var topArtists = await _scrobbles.GetTopArtistsGlobalAsync(AppConstants.TopListSize, cancellationToken);
-        var topAlbums = await _scrobbles.GetTopAlbumsGlobalAsync(AppConstants.TopListSize, cancellationToken);
-        var topTracks = await _scrobbles.GetTopTracksGlobalAsync(AppConstants.TopListSize, cancellationToken);
-
-        return Result<GlobalStatsResponse>.Ok(new GlobalStatsResponse(
-            total, totalUsers, uniqueArtists, uniqueTracks,
-            topArtists, topAlbums, topTracks));
+            new DayHourHeatmap(charts.DayHourHeatmap));
     }
 }

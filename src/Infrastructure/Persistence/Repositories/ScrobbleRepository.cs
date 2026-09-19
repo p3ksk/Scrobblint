@@ -179,6 +179,16 @@ public sealed class ScrobbleRepository : IScrobbleRepository
         return await db.Scrobbles.AsNoTracking().CountAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Guid>> GetActiveUserIdsAsync(DateTime sinceUtc, CancellationToken ct)
+    {
+        await using var db = _factory.CreateDbContext();
+        return await db.Scrobbles.AsNoTracking()
+            .Where(s => s.CreatedAt >= sinceUtc && s.User != null && !s.User.IsDisabled)
+            .Select(s => s.UserId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
     public async Task<int> CountDistinctArtistsGlobalAsync(CancellationToken ct)
     {
         await using var db = _factory.CreateDbContext();

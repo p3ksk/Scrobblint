@@ -17,6 +17,7 @@ using Scrobblint.Infrastructure.Persistence.Repositories;
 using Scrobblint.Infrastructure.Pipeline;
 using Scrobblint.Infrastructure.Relay;
 using Scrobblint.Infrastructure.Security;
+using Scrobblint.Infrastructure.Statistics;
 using Scrobblint.Infrastructure.Time;
 
 namespace Scrobblint.Infrastructure;
@@ -33,6 +34,7 @@ public static class DependencyInjection
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<LastfmOptions>(configuration.GetSection(LastfmOptions.SectionName));
         services.Configure<ImportOptions>(configuration.GetSection(ImportOptions.SectionName));
+        services.Configure<StatisticsOptions>(configuration.GetSection(StatisticsOptions.SectionName));
 
         // Resolve the provider and connection lazily through the options system so configuration added
         // late (e.g. by WebApplicationFactory in tests, or env vars) is honoured.
@@ -68,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<IScrobbleImportRepository, ScrobbleImportRepository>();
         services.AddScoped<ITrackInfoRepository, TrackInfoRepository>();
         services.AddScoped<IFailedRelayRepository, FailedRelayRepository>();
+        services.AddScoped<IStatisticsRepository, StatisticsRepository>();
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
@@ -129,6 +132,10 @@ public static class DependencyInjection
 
         // Gracefully drains the pipeline on shutdown (completes writers so workers drain).
         services.AddHostedService<PipelineDrainHostedService>();
+
+        // --- Precomputed statistics ---
+        // Recomputes and persists the statistics snapshots served by the read path.
+        services.AddHostedService<StatisticsPrecomputeWorker>();
 
         return services;
     }
