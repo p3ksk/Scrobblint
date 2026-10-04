@@ -24,6 +24,7 @@ public sealed class TestHost : IDisposable
 {
     private readonly SqliteConnection _connection;
     public ScrobblintDbContext Db { get; }
+    public IDbContextFactory<ScrobblintDbContext> Factory { get; }
     public FakeClock Clock { get; } = new();
     public RecordingPipelineQueue PipelineQueue { get; } = new();
 
@@ -51,6 +52,7 @@ public sealed class TestHost : IDisposable
         // Reads now resolve a fresh context from a factory. In tests every context shares the one
         // open in-memory SQLite connection, so reads still see what writes (on Db) have committed.
         var factory = new SharedConnectionContextFactory(options);
+        Factory = factory;
 
         var userRepo = new UserRepository(Db, factory);
         var scrobbleRepo = new ScrobbleRepository(Db, factory);

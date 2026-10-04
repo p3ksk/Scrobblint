@@ -156,6 +156,7 @@ public class StatisticsSnapshotServiceTests
 
         var worker = new StatisticsPrecomputeWorker(
             provider.GetRequiredService<IServiceScopeFactory>(),
+            new StatisticsPrecomputeTrigger(),
             Options.Create(new StatisticsOptions { ActiveWindowDays = 30 }),
             NullLogger<StatisticsPrecomputeWorker>.Instance);
 

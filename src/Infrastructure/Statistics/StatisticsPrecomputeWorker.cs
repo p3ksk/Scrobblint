@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Scrobblint.Application.Abstractions;
 using Scrobblint.Application.Abstractions.Persistence;
+using Scrobblint.Application.Abstractions.Statistics;
 using Scrobblint.Application.Common;
 using Scrobblint.Application.Services;
 using Scrobblint.Infrastructure.Configuration;
@@ -14,6 +15,7 @@ namespace Scrobblint.Infrastructure.Statistics;
 /// Periodically recomputes and persists the statistics snapshots that the read path serves, so
 /// browsing does not pay for the aggregate queries. Refreshes the site-wide snapshot and each
 /// recently-active user's all-time snapshot; inactive users are computed on demand on first request.
+/// An admin action can also wake it early through <see cref="IStatisticsPrecomputeTrigger"/>.
 /// </summary>
 public sealed class StatisticsPrecomputeWorker : BackgroundService
 {
@@ -21,15 +23,18 @@ public sealed class StatisticsPrecomputeWorker : BackgroundService
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(15);
 
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IStatisticsPrecomputeTrigger _trigger;
     private readonly StatisticsOptions _options;
     private readonly ILogger<StatisticsPrecomputeWorker> _logger;
 
     public StatisticsPrecomputeWorker(
         IServiceScopeFactory scopeFactory,
+        IStatisticsPrecomputeTrigger trigger,
         IOptions<StatisticsOptions> options,
         ILogger<StatisticsPrecomputeWorker> logger)
     {
         _scopeFactory = scopeFactory;
+        _trigger = trigger;
         _options = options.Value;
         _logger = logger;
     }
@@ -55,9 +60,10 @@ public sealed class StatisticsPrecomputeWorker : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Wait out the interval, but let an admin "recompute now" skip the rest of it.
             try
             {
-                await Task.Delay(interval, stoppingToken);
+                await _trigger.WaitForSignalAsync(interval, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

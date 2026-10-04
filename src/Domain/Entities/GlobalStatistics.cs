@@ -6,6 +6,9 @@ namespace Scrobblint.Domain.Entities;
 /// </summary>
 public class GlobalStatistics
 {
+    /// <summary>Primary key of the single row this table always holds.</summary>
+    public const int SingletonId = 1;
+
     /// <summary>Fixed primary key; the table always holds exactly one row.</summary>
     public int Id { get; set; }
 

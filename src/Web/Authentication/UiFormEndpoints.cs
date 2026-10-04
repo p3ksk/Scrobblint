@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Scrobblint.Api.Authentication;
 using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Relay;
+using Scrobblint.Application.Abstractions.Statistics;
 using Scrobblint.Application.Services;
 using Scrobblint.Domain.Enums;
 using Scrobblint.Shared.Connections;
@@ -287,6 +288,17 @@ public static class UiFormEndpoints
             var form = await ctx.Request.ReadFormAsync();
             trigger.RequestRun();
             return Results.LocalRedirect($"/admin/retrycache?page={RetryPage(form)}&ranNow=1");
+        });
+
+        // ---- Admin: statistics snapshots ----
+        var statsAdmin = app.MapGroup("/admin/stats").RequireAuthorization(adminPolicy);
+
+        statsAdmin.MapPost("/run-now", async (HttpContext ctx, IAntiforgery af, IStatisticsPrecomputeTrigger trigger) =>
+        {
+            if (!await Valid(af, ctx)) return Results.BadRequest();
+            var form = await ctx.Request.ReadFormAsync();
+            trigger.RequestRun();
+            return Results.LocalRedirect($"/admin/stats?page={RetryPage(form)}&ranNow=1");
         });
 
         // ---- Current user: retry cache (own stuck relays) ----

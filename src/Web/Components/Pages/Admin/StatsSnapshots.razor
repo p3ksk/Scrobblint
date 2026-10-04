@@ -1,0 +1,136 @@
+@page "/admin/stats"
+@using Scrobblint.Application.Abstractions.Statistics
+@attribute [Authorize(Roles = "Admin")]
+@inject IStatisticsStatusReader SnapshotStatus
+
+<PageTitle>Admin · Statistics snapshots — Scrobblint</PageTitle>
+
+<AdminNav />
+<h1>Statistics snapshots</h1>
+
+@if (RanNow == 1)
+{
+    <div class="alert alert-success">Recompute signalled — the worker will refresh the snapshots now instead of waiting out its interval.</div>
+}
+
+@if (_status is null)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="card narrow">
+        <div class="detail-list">
+            <dt>Global snapshot</dt>
+            <dd>@FormatComputed(_status.GlobalComputedAt)</dd>
+
+            <dt>User snapshots</dt>
+            <dd>@_status.UserSnapshotCount of @_status.TotalUsers users</dd>
+
+            <dt>Active users</dt>
+            <dd>@_status.ActiveUserCount</dd>
+
+            <dt>Active users behind</dt>
+            <dd>@_status.StaleActiveUserCount</dd>
+
+            <dt>Oldest user snapshot</dt>
+            <dd>@FormatComputed(_status.OldestUserComputedAt)</dd>
+
+            <dt>Newest user snapshot</dt>
+            <dd>@FormatComputed(_status.NewestUserComputedAt)</dd>
+
+            <dt>Refresh interval</dt>
+            <dd>@_status.IntervalMinutes min</dd>
+
+            <dt>Active window</dt>
+            <dd>@_status.ActiveWindowDays days</dd>
+
+            <dt>Run on startup</dt>
+            <dd>@(_status.RunOnStartup ? "Yes" : "No")</dd>
+        </div>
+    </div>
+}
+
+<div class="card">
+    <div class="action-row">
+        <form method="post" action="/admin/stats/run-now">
+            <AntiforgeryToken />
+            <input type="hidden" name="page" value="@_currentPage" />
+            <button class="btn" type="submit">Recompute now</button>
+        </form>
+    </div>
+
+    @if (_page is null)
+    {
+        <p>Loading…</p>
+    }
+    else if (_page.TotalCount == 0)
+    {
+        <p class="muted">No user snapshots stored yet — they are created by the worker and on demand.</p>
+    }
+    else
+    {
+        <div class="table-scroll">
+        <table class="table">
+            <thead>
+                <tr><th>User</th><th>Computed</th><th>Payload (chars)</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var s in _page.Items)
+                {
+                    <tr>
+                        <td>@s.Username</td>
+                        <td class="muted">@Format.DateTimeUtc(s.ComputedAt, _userTimezone)</td>
+                        <td>@s.PayloadChars</td>
+                        <td>
+                            @if (s.IsStale)
+                            {
+                                <span class="badge badge-warn">older than interval</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-ok">fresh</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+
+        <div class="pager">
+            @if (_page.HasPrevious)
+            {
+                <a class="btn" href="/admin/stats?page=@(_page.Page - 1)">← Previous</a>
+            }
+            <span class="muted">Page @_page.Page of @_page.TotalPages (@_page.TotalCount snapshots)</span>
+            @if (_page.HasNext)
+            {
+                <a class="btn" href="/admin/stats?page=@(_page.Page + 1)">Next →</a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery] private int? Page { get; set; }
+    [SupplyParameterFromQuery] private int? RanNow { get; set; }
+    [CascadingParameter] private string? Timezone { get; set; }
+
+    private StatisticsSnapshotStatus? _status;
+    private PagedResponse<UserStatisticsSummary>? _page;
+    private int _currentPage = 1;
+    private string? _userTimezone;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentPage = Math.Max(1, Page ?? 1);
+        _userTimezone = Timezone;
+
+        _status = await SnapshotStatus.GetStatusAsync();
+        _page = await SnapshotStatus.GetUserSnapshotsAsync(_currentPage, 25);
+    }
+
+    private string FormatComputed(long? unix) =>
+        unix is null ? "never" : Format.DateTimeUtc(unix.Value, _userTimezone);
+}

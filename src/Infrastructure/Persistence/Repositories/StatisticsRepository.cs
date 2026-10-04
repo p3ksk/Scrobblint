@@ -6,9 +6,6 @@ namespace Scrobblint.Infrastructure.Persistence.Repositories;
 
 public sealed class StatisticsRepository : IStatisticsRepository
 {
-    /// <summary>The site-wide snapshot always lives under this fixed key.</summary>
-    private const int GlobalSnapshotId = 1;
-
     private readonly ScrobblintDbContext _context;
     private readonly IDbContextFactory<ScrobblintDbContext> _factory;
 
@@ -31,7 +28,7 @@ public sealed class StatisticsRepository : IStatisticsRepository
     {
         await using var db = _factory.CreateDbContext();
         return await db.GlobalStatistics.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == GlobalSnapshotId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.Id == GlobalStatistics.SingletonId, cancellationToken);
     }
 
     public async Task UpsertUserAsync(Guid userId, string payloadJson, DateTime computedAt, CancellationToken cancellationToken = default)
@@ -60,12 +57,12 @@ public sealed class StatisticsRepository : IStatisticsRepository
 
     public async Task UpsertGlobalAsync(string payloadJson, DateTime computedAt, CancellationToken cancellationToken = default)
     {
-        var existing = await _context.GlobalStatistics.FindAsync(new object[] { GlobalSnapshotId }, cancellationToken);
+        var existing = await _context.GlobalStatistics.FindAsync(new object[] { GlobalStatistics.SingletonId }, cancellationToken);
         if (existing is null)
         {
             _context.GlobalStatistics.Add(new GlobalStatistics
             {
-                Id = GlobalSnapshotId,
+                Id = GlobalStatistics.SingletonId,
                 PayloadJson = payloadJson,
                 ComputedAt = computedAt
             });

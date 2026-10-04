@@ -8,6 +8,7 @@ using Scrobblint.Application.Abstractions.Persistence;
 using Scrobblint.Application.Abstractions.Pipeline;
 using Scrobblint.Application.Abstractions.Relay;
 using Scrobblint.Application.Abstractions.Security;
+using Scrobblint.Application.Abstractions.Statistics;
 using Scrobblint.Infrastructure.Configuration;
 using Scrobblint.Infrastructure.CoverArt;
 using Scrobblint.Infrastructure.Import;
@@ -135,6 +136,8 @@ public static class DependencyInjection
 
         // --- Precomputed statistics ---
         // Recomputes and persists the statistics snapshots served by the read path.
+        services.AddSingleton<IStatisticsPrecomputeTrigger, StatisticsPrecomputeTrigger>();
+        services.AddScoped<IStatisticsStatusReader, StatisticsStatusReader>();
         services.AddHostedService<StatisticsPrecomputeWorker>();
 
         return services;
